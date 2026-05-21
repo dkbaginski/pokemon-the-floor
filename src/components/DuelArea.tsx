@@ -328,7 +328,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
   const activeDetail = POKEMON_TYPES_PL[categoryType];
 
   return (
-    <div className="w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between bg-cream-base border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative font-sans text-cocoa">
+    <div className="w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between bg-cream-base border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa">
       
       {/* Background soft cafe glow */}
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-cafe-beige/35 to-transparent pointer-events-none" />

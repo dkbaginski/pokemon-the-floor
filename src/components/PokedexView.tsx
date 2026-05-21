@@ -231,7 +231,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
   });
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[68px] z-20 bg-cream-base flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
+    <div className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-cream-base flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
       {!selectedPokeDetail && (
         <header className="h-16 w-full bg-cream-base border-b-2 border-[#5A3A2A] px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
           <h2 className="font-display font-black tracking-tight text-sm sm:text-base text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
