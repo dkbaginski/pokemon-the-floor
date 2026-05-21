@@ -1,0 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,600;6..12,800&family=Fredoka:wght@700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fredoka", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-cream-base: #FFF4DF;
+  --color-cafe-beige: #F2D5A7;
+  --color-white-frost: #FFFFFF;
+  --color-cocoa: #5A3A2A;
+  --color-pokemon-navy: #24456B;
+  --color-lemon-yellow: #FFD84D;
+  --color-soft-mint: #A9E6CF;
+  --color-sky-blue: #BDEBFF;
+  --color-coral: #FF7A62;
+  --color-berry-red: #E95050;
+  --color-warm-shadow: rgba(90, 58, 42, 0.18);
+}
+
+@layer base {
+  html, body, #root {
+    background-color: #FFF4DF;
+    color: #5A3A2A;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Beautiful custom sticker pop animations and utility styles */
+@keyframes sticker-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+
+.sticker-hover:hover {
+  animation: sticker-wiggle 1s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FFF4DF;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #F2D5A7;
+  border-radius: 999px;
+  border: 1px solid #5A3A2A;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5A3A2A;
+}
+
+@keyframes conquest-pulse {
+  0% {
+    transform: scale(1);
+    background-color: #F2D5A7;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+    z-index: 50;
+  }
+  15% {
+    transform: scale(1.15); /* Physics-mode spring pop */
+    background-color: #FFD84D;
+    box-shadow: 0 6px 0 #24456B;
+    z-index: 50;
+  }
+  40% {
+    transform: scale(1.22); /* Radiant max amplitude */
+    background-color: #FFD84D;
+    box-shadow: 0 8px 12px rgba(90, 58, 42, 0.35);
+    z-index: 50;
+  }
+  70% {
+    transform: scale(1.08); /* Decay phase */
+    background-color: #FFF4DF;
+    box-shadow: 0 4px 0 #5A3A2A;
+    z-index: 50;
+  }
+  100% {
+    transform: scale(1); /* Smooth final landing into player cell style */
+    background-color: #FFF4DF;
+    box-shadow: 0 4px 0 #5A3A2A;
+    border-color: #5A3A2A;
+    z-index: 10;
+  }
+}
+
+.animate-lava-takeover {
+  animation: conquest-pulse 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 45 !important;
+  position: relative;
+  pointer-events: none; /* Avoid clicks while animating */
+}
+
+/* Fluid Mobile Ergonomic utilities to prevent overflows and dead-zones */
+.fluid-py-container {
+  padding-top: clamp(0.5rem, 2vh, 1.5rem);
+  padding-bottom: clamp(0.5rem, 2vh, 1.5rem);
+}
+
+.fluid-gap-large {
+  gap: clamp(0.75rem, 3vh, 2rem);
+}
+
+.fluid-gap-medium {
+  gap: clamp(0.5rem, 2vh, 1.25rem);
+}
+
+.fluid-gap-small {
+  gap: clamp(0.25rem, 1vh, 0.65rem);
+}
+
+.fluid-my-medium {
+  margin-top: clamp(0.5rem, 2vh, 1.25rem);
+  margin-bottom: clamp(0.5rem, 2vh, 1.25rem);
+}
+
+.fluid-badge-container {
+  height: clamp(80px, 16vh, 120px);
+  width: clamp(80px, 16vh, 120px);
+  max-height: 120px;
+  max-width: 120px;
+}
+
+.fluid-img-pikachu {
+  max-height: clamp(10vh, 14vh, 110px);
+  height: auto;
+  width: auto;
+}
+
+.fluid-img-avatar {
+  height: clamp(70px, 15vh, 110px);
+  width: clamp(70px, 15vh, 110px);
+  max-height: 110px;
+  max-width: 110px;
+}
+
+/* Dominant Map Aspect scaler to fit any mobile phone safely */
+.fluid-map-scale {
+  width: 100%;
+  max-width: clamp(240px, calc(72dvh - 198px), 480px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Premium micro-interactions and button standardization metrics */
+.btn-core-yellow {
+  background-color: #FFD84D;
+  color: #24456B;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid #24456B;
+  border-radius: 20px;
+  box-shadow: 0 4px 0 #24456B;
+  transition: all 120ms cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-core-yellow:hover {
+  background-color: #FFE26A;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 #24456B;
+}
+
+.btn-core-yellow:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #24456B;
+}
+
+.btn-core-red {
+  background-color: #FF7A62;
+  color: #5A3A2A;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid #5A3A2A;
+  border-radius: 20px;
+  box-shadow: 0 4px 0 #5A3A2A;
+  transition: all 120ms cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-core-red:hover {
+  background-color: #FF9481;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 #5A3A2A;
+}
+
+.btn-core-red:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #5A3A2A;
+}
+
+.btn-core-dark {
+  background-color: #FFFFFF;
+  color: #5A3A2A;
+  border: 2px solid #5A3A2A;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 20px;
+  box-shadow: 0 4px 0 #5A3A2A;
+  transition: all 120ms cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-core-dark:hover {
+  background-color: #FFFFFA;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0 #5A3A2A;
+}
+
+.btn-core-dark:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #5A3A2A;
+}
