@@ -352,17 +352,23 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
         <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-300 ${
           activePlayer === "player"
             ? "bg-[#FFFFFF] border-r-2 border-[#5A3A2A]"
-            : "border-r-2 border-[#5A3A2A] bg-[#FFF4DF]/40"
+            : "border-r-2 border-[#5A3A2A] bg-[#FFF4DF]"
         }`}
-        style={{ opacity: activePlayer === "player" ? 1.0 : 0.75 }}>
-          <span className="text-[9px] font-black text-[#5A3A2A] uppercase tracking-wider">{language === "pl" ? "TWÓJ CZAS" : "YOUR TIME"}</span>
+        style={{ opacity: 1.0 }}>
+          <span className={`text-[9.5px] font-black uppercase tracking-wider ${
+            activePlayer === "player" ? "text-[#24456B]" : "text-[#8C6D58]"
+          }`}>{language === "pl" ? "TWÓJ CZAS" : "YOUR TIME"}</span>
           <div className={`text-2xl font-mono font-black tracking-tighter ${
-            playerTime < 10 ? "text-[#E95050] animate-pulse" : activePlayer === "player" ? "text-[#24456B]" : "text-[#5A3A2A]"
+            playerTime < 10 
+              ? "text-[#E95050] animate-pulse" 
+              : activePlayer === "player" 
+              ? "text-[#24456B]" 
+              : "text-[#5A3A2A]"
           }`}>
             {playerTime.toFixed(1)}s
           </div>
           {activePlayer === "player" && (
-            <div className="h-1 w-full bg-[#24456B] mt-0.5" />
+            <div className="h-1 w-full bg-[#24456B] mt-0.5 animate-pulse" />
           )}
         </div>
 
@@ -370,17 +376,23 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
         <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-300 ${
           activePlayer === "opponent"
             ? "bg-[#FFFFFF]"
-            : "bg-[#FFF4DF]/40"
+            : "bg-[#FFF4DF]"
         }`}
-        style={{ opacity: activePlayer === "opponent" ? 1.0 : 0.75 }}>
-          <span className="text-[9px] font-black text-[#5A3A2A] uppercase tracking-wider">{language === "pl" ? "PRZECIWNIK" : "OPPONENT"} ({opponent.avatar})</span>
+        style={{ opacity: 1.0 }}>
+          <span className={`text-[9.5px] font-black uppercase tracking-wider ${
+            activePlayer === "opponent" ? "text-[#24456B]" : "text-[#8C6D58]"
+          }`}>{language === "pl" ? "PRZECIWNIK" : "OPPONENT"} ({opponent.avatar})</span>
           <div className={`text-2xl font-mono font-black tracking-tighter ${
-            activePlayer === "opponent" ? "text-[#24456B]" : "text-[#5A3A2A]"
+            opponentTime < 10 && activePlayer === "opponent"
+              ? "text-[#E95050] animate-pulse"
+              : activePlayer === "opponent" 
+              ? "text-[#24456B]" 
+              : "text-[#5A3A2A]"
           }`}>
             {opponentTime.toFixed(1)}s
           </div>
           {activePlayer === "opponent" && (
-            <div className="h-1 w-full bg-[#24456B] mt-0.5" />
+            <div className="h-1 w-full bg-[#24456B] mt-0.5 animate-pulse" />
           )}
         </div>
       </div>

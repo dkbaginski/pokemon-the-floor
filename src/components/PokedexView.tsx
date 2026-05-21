@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { POKEMON_LIST, getPokemonImageUrl, POKEMON_TYPES_PL, Pokemon, getTypeName } from "../pokemonData";
-import { Search, Lock, Zap, Award, Eye, Info, X, BookOpen } from "lucide-react";
+import { Search, Lock, Award, Eye, X, BookOpen } from "lucide-react";
 
 interface PokedexViewProps {
   unlockedIds: number[]; // represents CAUGHT
@@ -11,6 +11,143 @@ interface PokedexViewProps {
   t: any;
 }
 
+// --- KOMPONENT ATOMOWY: KAFELEK POKÉMONA (ZOPTYMALIZOWANY PRZEZ REACT.MEMO) ---
+interface PokemonCardProps {
+  poke: Pokemon;
+  isCaught: boolean;
+  isSeen: boolean;
+  isUnlocked: boolean;
+  language: "pl" | "en";
+  t: any;
+  onSelect: (poke: Pokemon) => void;
+}
+
+const PokemonCard = memo(function PokemonCard({
+  poke,
+  isCaught,
+  isSeen,
+  isUnlocked,
+  language,
+  t,
+  onSelect
+}: PokemonCardProps) {
+  
+  // 1. Optymalizacja wydajności: Wyliczenie wartości raz na cykl życia renderu kafelka
+  const formattedId = `#${poke.id.toString().padStart(3, "0")}`;
+  const pokemonImgUrl = getPokemonImageUrl(poke.id);
+  
+  // 2. Nadanie bezpiecznych, czystych stylów tła (Koniec z brudnym bleedem pastelowym)
+  let cardBg = "bg-[#F2D5A7]/30 border-2 border-[#5A3A2A]/45 cursor-not-allowed";
+  if (isCaught) {
+    cardBg = "bg-white border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#FFF4DF]/15 cursor-pointer active:scale-95 duration-100";
+  } else if (isSeen) {
+    cardBg = "bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#BDEBFF]/90 cursor-pointer active:scale-95 duration-100";
+  }
+
+  // 3. Pobranie i utrwalenie nazw typów
+  const type1Name = poke.types[0] ? getTypeName(poke.types[0], language) : null;
+  const type2Name = poke.types[1] ? getTypeName(poke.types[1], language) : null;
+
+  return (
+    <button
+      onClick={() => { if (isUnlocked) onSelect(poke); }}
+      disabled={!isUnlocked}
+      className={`relative overflow-hidden rounded-2xl flex flex-col items-center justify-between text-center transition-all min-h-[155px] p-2.5 shrink-0 ${cardBg}`}
+    >
+      {/* ID Counter */}
+      <div className="absolute top-1.5 right-2 text-[9px] font-mono font-black text-[#5A3A2A]/60">
+        {formattedId}
+      </div>
+
+      {/* Picture Container */}
+      <div className="my-2 h-14 w-14 flex items-center justify-center relative">
+        {isUnlocked ? (
+          <img
+            src={pokemonImgUrl}
+            alt={poke.name}
+            referrerPolicy="no-referrer"
+            className={`h-12 w-12 object-contain ${!isCaught && isSeen ? "brightness-0 opacity-30 grayscale" : ""}`}
+            style={{ filter: isCaught ? "drop-shadow(0 2px 4px rgba(90,58,42,0.15))" : "none" }}
+          />
+        ) : (
+          <div className="relative flex items-center justify-center text-[#5A3A2A]/40">
+            <img
+              src={pokemonImgUrl}
+              alt={language === "pl" ? "Zablokowany" : "Locked"}
+              referrerPolicy="no-referrer"
+              className="h-12 w-12 object-contain brightness-0 opacity-10 select-none grayscale"
+            />
+            <Lock className="absolute h-3.5 w-3.5 text-[#5A3A2A]/70 animate-pulse" />
+          </div>
+        )}
+      </div>
+
+      {/* Name Label */}
+      <div className="w-full">
+        <div
+          className="text-[11px] font-display font-black tracking-tight leading-none min-h-[22px] flex items-center justify-center text-center uppercase break-all px-0.5"
+          style={{ color: "#5A3A2A" }}
+        >
+          {isUnlocked ? (isCaught ? poke.name : t.statusSeen) : "???"}
+        </div>
+        
+        {/* Stable High-Contrast Types Footprint Box */}
+        <div className="mt-1 flex flex-col gap-0.5 items-center justify-center w-full min-h-[30px] select-none pb-1.5">
+          <div className="flex items-center justify-center h-3.5 w-full">
+            {type1Name ? (
+              <span
+                className="px-1.5 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate font-black"
+                style={{ 
+                  backgroundColor: POKEMON_TYPES_PL[poke.types[0]]?.bgHex || "#A9E6CF",
+                  color: "#5A3A2A",
+                  WebkitFontSmoothing: "antialiased"
+                }}
+                title={type1Name}
+              >
+                {type1Name}
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
+                EMPTY
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-center h-3.5 w-full">
+            {type2Name ? (
+              <span
+                className="px-1.5 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate font-black"
+                style={{ 
+                  backgroundColor: POKEMON_TYPES_PL[poke.types[1]]?.bgHex || "#A9E6CF",
+                  color: "#5A3A2A",
+                  WebkitFontSmoothing: "antialiased"
+                }}
+                title={type2Name}
+              >
+                {type2Name}
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
+                EMPTY
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}, (prevProps, nextProps) => {
+  // Ręczna, rygorystyczna kontrola renderu: odśwież komórkę TYLKO przy fizycznej zmianie stanu gry lub języka
+  return (
+    prevProps.isCaught === nextProps.isCaught &&
+    prevProps.isSeen === nextProps.isSeen &&
+    prevProps.isUnlocked === nextProps.isUnlocked &&
+    prevProps.language === nextProps.language &&
+    prevProps.poke.id === nextProps.poke.id
+  );
+});
+
+// --- POMOCNICZA FUNKCJA LORE OPISÓW BAZY DANYCH ---
 function getPokemonDescription(id: number, name: string, types: string[], language: "pl" | "en"): string {
   const descriptionsPl: Record<number, string> = {
     1: "Bulbasaur spędza czas drzemiąc w słońcu. Na jego plecach rośnie tajemnicze nasiono, które rozszerza się i czerpie energię z promieni słonecznych.",
@@ -73,10 +210,11 @@ function getPokemonDescription(id: number, name: string, types: string[], langua
   }
 }
 
+// --- GŁÓWNY KOMPONENT WIDOKU POKÉDEXU ---
 export default function PokedexView({ unlockedIds, seenIds = [], onClose, playerActiveTypes = [], language, t }: PokedexViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedPokeDetail, setSelectedPokeDetail] = useState<Pokemon|null>(null);
+  const [selectedPokeDetail, setSelectedPokeDetail] = useState<Pokemon | null>(null);
 
   const unlockedSet = new Set(unlockedIds);
   const seenSet = new Set([...unlockedIds, ...seenIds]);
@@ -85,7 +223,6 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
   const seenCount = seenSet.size;
   const percentage = Math.round((unlockedCount / totalCount) * 100);
 
-  // Filter pokemon based on search and selected type
   const filteredPokemon = POKEMON_LIST.filter((poke) => {
     const matchesSearch = poke.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           poke.id.toString() === searchTerm;
@@ -95,7 +232,6 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
   return (
     <div className="fixed inset-x-0 top-0 bottom-[68px] z-20 bg-cream-base flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
-      {/* Unified Header - Hidden when detailed view is active */}
       {!selectedPokeDetail && (
         <header className="h-16 w-full bg-cream-base border-b-2 border-[#5A3A2A] px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
           <h2 className="font-display font-black tracking-tight text-sm sm:text-base text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
@@ -120,7 +256,6 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
               {unlockedCount} / {totalCount} ({percentage}%)
             </span>
           </div>
-          {/* Progress bar */}
           <div className="h-4 w-full rounded-full bg-white-frost overflow-hidden border-2 border-[#5A3A2A] p-0.5">
             <div
               className="h-full bg-lemon-yellow rounded-full transition-all duration-500 shadow-sm"
@@ -146,7 +281,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters Panel */}
         <div className="space-y-3 mb-6">
           <div className="relative">
             <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-cocoa/50" />
@@ -171,7 +306,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
             >
               {t.filterAll}
             </button>
-            {Object.entries(POKEMON_TYPES_PL).map(([typeKey, details]) => (
+            {Object.entries(POKEMON_TYPES_PL).map(([typeKey]) => (
               <button
                 key={typeKey}
                 onClick={() => setSelectedType(typeKey)}
@@ -194,101 +329,17 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
               const isCaught = unlockedSet.has(poke.id);
               const isSeen = seenSet.has(poke.id);
               const isUnlocked = isCaught || isSeen;
-              
-              let cardBg = "bg-[#E2D0B6] border-2 border-[#5A3A2A]/30 cursor-not-allowed";
-              if (isCaught) {
-                cardBg = "bg-white-frost border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#FFF4DF]/15 cursor-pointer active:scale-95 duration-100";
-              } else if (isSeen) {
-                cardBg = "bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#BDEBFF]/90 cursor-pointer active:scale-95 duration-100";
-              }
-
               return (
-                <button
+                <PokemonCard
                   key={poke.id}
-                  onClick={() => {
-                    if (isUnlocked) setSelectedPokeDetail(poke);
-                  }}
-                  disabled={!isUnlocked}
-                  className={`relative overflow-hidden rounded-2xl flex flex-col items-center justify-between text-center transition-all min-h-[155px] p-2.5 shrink-0 ${cardBg}`}
-                >
-                  {/* ID Counter */}
-                  <div className="absolute top-1.5 right-2 text-[9px] font-mono font-black text-[#5A3A2A]/75">
-                    #{poke.id.toString().padStart(3, "0")}
-                  </div>
-
-                  {/* Picture */}
-                  <div className="my-2 h-14 w-14 flex items-center justify-center relative">
-                    {isUnlocked ? (
-                      <img
-                        src={getPokemonImageUrl(poke.id)}
-                        alt={poke.name}
-                        referrerPolicy="no-referrer"
-                        className={`h-12 w-12 object-contain ${!isCaught && isSeen ? "brightness-0 opacity-40 grayscale" : ""}`}
-                        style={{ filter: isCaught ? "drop-shadow(0 2px 4px rgba(90,58,42,0.15))" : "none" }}
-                      />
-                    ) : (
-                      <div className="relative flex items-center justify-center text-[#5A3A2A]/50">
-                        <img
-                          src={getPokemonImageUrl(poke.id)}
-                          alt={language === "pl" ? "Zablokowany" : "Locked"}
-                          referrerPolicy="no-referrer"
-                          className="h-12 w-12 object-contain brightness-0 opacity-15 select-none grayscale"
-                        />
-                        <Lock className="absolute h-3.5 w-3.5 text-[#5A3A2A]" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Name & Symmetrical Locked Baseline Types Height Container */}
-                  <div className="w-full">
-                    <div className="text-[11px] font-display font-black tracking-tight leading-none min-h-[22px] flex items-center justify-center text-center uppercase break-all px-0.5 text-[#5A3A2A]">
-                      {isUnlocked ? (isCaught ? poke.name : "WIDZIANY") : "???"}
-                    </div>
-                    
-                    {/* Stable Types Footprint Box containing exactly 2 explicit lines of slots */}
-                    <div className="mt-1 flex flex-col gap-0.5 items-center justify-center w-full min-h-[30px] select-none pb-1.5">
-                      <div className="flex items-center justify-center h-3.5 w-full">
-                        {poke.types[0] ? (
-                          <span
-                            className="px-1.5 py-0.5 text-[8px] font-black tracking-wider text-[#5A3A2A] uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate antialiased"
-                            style={{ 
-                              backgroundColor: POKEMON_TYPES_PL[poke.types[0]]?.bgHex || "#A9E6CF",
-                              opacity: isUnlocked ? 1.0 : 0.85,
-                              WebkitFontSmoothing: "antialiased"
-                            }}
-                            title={getTypeName(poke.types[0], language)}
-                          >
-                            {getTypeName(poke.types[0], language)}
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 text-[8px] font-black tracking-wider text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
-                            EMPTY
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center justify-center h-3.5 w-full">
-                        {poke.types[1] ? (
-                          <span
-                            className="px-1.5 py-0.5 text-[8px] font-black tracking-wider text-[#5A3A2A] uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate antialiased"
-                            style={{ 
-                              backgroundColor: POKEMON_TYPES_PL[poke.types[1]]?.bgHex || "#A9E6CF",
-                              opacity: isUnlocked ? 1.0 : 0.85,
-                              WebkitFontSmoothing: "antialiased"
-                            }}
-                            title={getTypeName(poke.types[1], language)}
-                          >
-                            {getTypeName(poke.types[1], language)}
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 text-[8px] font-black tracking-wider text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
-                            EMPTY
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
+                  poke={poke}
+                  isCaught={isCaught}
+                  isSeen={isSeen}
+                  isUnlocked={isUnlocked}
+                  language={language}
+                  t={t}
+                  onSelect={setSelectedPokeDetail}
+                />
               );
             })}
           </div>
