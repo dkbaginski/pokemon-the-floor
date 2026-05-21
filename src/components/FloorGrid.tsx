@@ -143,34 +143,6 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
     };
   });
 
-  // Precyzyjne pozycjonowanie plakietki przy użyciu odległości Manhattan
-  const playerCells = grid.filter((c) => c.currentOwnerId === "player" && c.id !== justConqueredCellId);
-  let playerBadgeStyle: CSSProperties | null = null;
-  
-  if (playerCells.length > 0) {
-    const rows = playerCells.map((c) => c.row);
-    const cols = playerCells.map((c) => c.col);
-    const targetRow = (Math.min(...rows) + Math.max(...rows)) / 2;
-    const targetCol = (Math.min(...cols) + Math.max(...cols)) / 2;
-
-    const closestCell = playerCells.reduce((closest, current) => {
-      const currentDist = Math.abs(current.row - targetRow) + Math.abs(current.col - targetCol);
-      const closestDist = Math.abs(closest.row - targetRow) + Math.abs(closest.col - targetCol);
-      return currentDist < closestDist ? current : closest;
-    });
-
-    const rowCount = 5;
-    const cellSizePct = 100 / rowCount;
-
-    playerBadgeStyle = {
-      position: "absolute",
-      top: `${closestCell.row * cellSizePct + (cellSizePct / 2)}%`,
-      left: `${closestCell.col * cellSizePct + (cellSizePct / 2)}%`,
-      transform: "translate(-50%, -50%)",
-      zIndex: 15, // Bezpieczna warstwa wewnątrz Map Grid
-    };
-  }
-
   return (
     <div className="w-full font-sans text-cocoa select-none">
       {/* Statystyki górne */}
@@ -195,71 +167,40 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
       {/* Legenda wyspowa */}
       <div className="mb-3 flex items-center justify-center gap-4 text-[10px] font-black text-[#5A3A2A] bg-white border-2 border-[#5A3A2A] py-1.5 px-4 rounded-[16px] leading-none w-full shadow-[0_3px_0_#5A3A2A] antialiased">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-[#BDEBFF] border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
+          <span className="w-3 h-3 rounded bg-[#FFD84D] border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
           <span className="uppercase tracking-wider font-extrabold">{t.legendMy}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-white border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
+          <span className="w-3 h-3 rounded bg-white border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
           <span className="uppercase tracking-wider font-extrabold">{t.legendGridTarget || "Aktywne"}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-[#F2D5A7] border-2 border-[#5A3A2A] flex-shrink-0 flex items-center justify-center text-[8px] font-black text-white shadow-[0_1px_0_#5A3A2A] leading-none">✕</span>
+          <span className="w-3 h-3 rounded bg-[#EADFC9] border-2 border-[#5A3A2A] flex-shrink-0 flex items-center justify-center text-[8px] font-black text-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] leading-none">✕</span>
           <span className="text-[#5A3A2A] uppercase tracking-wider font-extrabold">{t.legendLocked}</span>
         </div>
       </div>
 
-      {/* Kontener Główny Planszy - Wyraźny kontrast od tła cream-base aplikacji */}
-      <div className="relative overflow-hidden rounded-[24px] bg-[#F2D5A7] p-2 sm:p-3 shadow-md border-2 border-[#5A3A2A]">
-        {/* Usunięcie gap-1.5 i wdrożenie gap-0 umożliwia perfekcyjne zlanie kafelków gracza */}
+      {/* Kontener Główny Planszy - Wyraźny kontrast i piękny Plush Sticker visual */}
+      <div className="relative overflow-hidden rounded-[24px] bg-[#F2D5A7] p-2.5 sm:p-3.5 shadow-[0_6px_0_#5A3A2A] border-2 border-[#5A3A2A]">
+        {/* Usunięcie gap-0 i przywrócenie gap-1.5 dla uzyskania czystej formy wyspowej */}
         <div 
-          className="grid gap-0 aspect-square relative bg-[#F2D5A7]"
-          style={{
-            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-            gridTemplateRows: "repeat(5, minmax(0, 1fr))",
-          }}
+          className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#F2D5A7]"
         >
           {gridItems.map((item) => {
             const representativeCell = item.cells[0];
             const owner = TRAINERS[representativeCell.currentOwnerId] || TRAINERS.player;
             const originalTrainer = TRAINERS[representativeCell.initialTrainerId] || TRAINERS.player;
 
-            const r = item.gridRowStart - 1;
-            const c = item.gridColStart - 1;
-
-            // Wyznaczanie sąsiadów zoptymalizowanym Setem
-            const hasLeftNeighbor = item.isPlayer && playerFieldsSet.has(`${r}-${c - 1}`);
-            const hasRightNeighbor = item.isPlayer && playerFieldsSet.has(`${r}-${c + 1}`);
-            const hasTopNeighbor = item.isPlayer && playerFieldsSet.has(`${r - 1}-${c}`);
-            const hasBottomNeighbor = item.isPlayer && playerFieldsSet.has(`${r + 1}-${c}`);
-
-            // Dynamiczne wygaszanie krawędzi WEWNĘTRZNYCH terytorium
-            const borderStyle = item.isPlayer ? {
-              borderTop: hasTopNeighbor ? "none" : "2px solid #5A3A2A",
-              borderBottom: hasBottomNeighbor ? "none" : "2px solid #5A3A2A",
-              borderLeft: hasLeftNeighbor ? "none" : "2px solid #5A3A2A",
-              borderRight: hasRightNeighbor ? "none" : "2px solid #5A3A2A",
-            } : {
-              border: "2px solid #5A3A2A"
-            };
-
-            // Dynamiczne zaokrąglanie rogów wyłącznie na skrajach terytorium
-            const roundStyle = item.isPlayer ? {
-              borderTopLeftRadius: hasTopNeighbor || hasLeftNeighbor ? "0px" : "14px",
-              borderTopRightRadius: hasTopNeighbor || hasRightNeighbor ? "0px" : "14px",
-              borderBottomLeftRadius: hasBottomNeighbor || hasLeftNeighbor ? "0px" : "14px",
-              borderBottomRightRadius: hasBottomNeighbor || hasRightNeighbor ? "0px" : "14px",
-            } : {
-              borderRadius: "14px"
-            };
-
-            // Stark Contrast - Nowe definicje tła eliminujące pastelowy zlew
+            // Stark Contrast - Nowe definicje tła eliminujące pastelowy zlew plus neutralne Stone dla pól zablokowanych
             const bgClass = item.isJustConquered
-              ? "animate-lava-takeover text-[#5A3A2A]"
+              ? "animate-lava-takeover bg-[#FFD84D] text-[#5A3A2A]"
               : item.isPlayer
-              ? "bg-[#BDEBFF] cursor-default text-[#5A3A2A]"
+              ? "bg-[#FFD84D] cursor-default text-[#24456B]"
               : item.isAdjacent
-              ? "bg-white hover:bg-lemon-yellow/20 cursor-pointer transition-all duration-150 text-[#5A3A2A]"
-              : "bg-[#F2D5A7] cursor-not-allowed text-[#5A3A2A]/60";
+              ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
+              : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
+
+            const isLocked = !item.isPlayer && !item.isAdjacent && !item.isJustConquered;
 
             const tooltipText = item.isPlayer
               ? (language === "pl" ? `Twoje terytorium (${item.cells.length} regionów)` : `Your territory (${item.cells.length} regions)`)
@@ -274,72 +215,68 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
                   if (item.isAdjacent) onSelectCell(representativeCell, owner);
                 }}
                 disabled={!item.isAdjacent}
-                className={`relative flex flex-col items-center justify-between p-1 pt-1.5 pb-1 transition-all outline-none ${bgClass}`}
+                className={`relative flex flex-col items-center justify-between p-1 pt-1.5 pb-1 transition-all outline-none border-2 border-[#5A3A2A] rounded-xl sm:rounded-2xl shadow-[0_3px_0_#5A3A2A] active:shadow-none active:translate-y-0.5 ${bgClass}`}
                 style={{
-                  gridRow: `${item.gridRowStart} / span ${item.rowSpan}`,
-                  gridColumn: `${item.gridColStart} / span ${item.colSpan}`,
-                  ...borderStyle,
-                  ...roundStyle
+                  gridRow: `${item.gridRowStart} / span 1`,
+                  gridColumn: `${item.gridColStart} / span 1`,
                 }}
                 title={tooltipText}
               >
-                {/* Avatar lidera */}
-                {!item.isPlayer && (
-                  <span className={`text-base sm:text-xl z-10 select-none transition-all leading-none ${(!item.isPlayer && !item.isAdjacent) ? "grayscale opacity-40" : ""}`}>
-                    {owner.avatar}
-                  </span>
-                )}
-
-                {/* Czytelne imię bez ucinania */}
-                {!item.isPlayer && (
-                  <span 
-                    className="z-10 select-none block text-center antialiased whitespace-nowrap leading-none px-0.5 w-full uppercase tracking-tight my-auto font-black"
-                    style={{
-                      fontSize: "clamp(9px, 1.1vh, 11px)",
-                      color: item.isAdjacent ? "#24456B" : "#5A3A2A",
-                      WebkitFontSmoothing: "antialiased"
-                    }}
-                  >
-                    {getTrainerShortName(owner, language)}
-                  </span>
-                )}
-
-                {/* Pasek typów zintegrowany z układem */}
-                {!item.isPlayer && (
-                  <div className="w-full h-1 flex gap-0.5 z-10 overflow-hidden rounded-full border border-cocoa/40 mt-auto shrink-0">
-                    {item.cells.map((cl) => {
-                      const cellBg = POKEMON_TYPES_PL[cl.primaryType]?.bgHex || "#94a3b8";
-                      return (
-                        <span 
-                          key={cl.id}
-                          className="flex-1 h-full first:rounded-l-full last:rounded-r-full"
-                          style={{ backgroundColor: cellBg }}
-                        />
-                      );
-                    })}
+                {/* Opcja dla kafelka gracza */}
+                {(item.isPlayer || item.isJustConquered) && (
+                  <div className="flex flex-col items-center justify-center my-auto h-full w-full select-none gap-0.5 sm:gap-1">
+                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse">⚡</span>
+                    <span className="font-display font-black text-[9px] sm:text-[10px] text-[#24456B] uppercase tracking-wider leading-none">
+                      {language === "pl" ? "TY" : "YOU"}
+                    </span>
                   </div>
+                )}
+
+                {/* For non-player fields (Opponent fields, adjacent or locked) */}
+                {!(item.isPlayer || item.isJustConquered) && (
+                  <>
+                    {/* Avatar lidera */}
+                    <span className={`text-base sm:text-xl z-10 select-none transition-all leading-none ${isLocked ? "grayscale opacity-40" : ""}`}>
+                      {owner.avatar}
+                    </span>
+
+                    {/* Czytelne imię bez ucinania */}
+                    <span 
+                      className="z-10 select-none block text-center antialiased whitespace-nowrap leading-none px-0.5 w-full uppercase tracking-tight my-auto font-black"
+                      style={{
+                        fontSize: "clamp(8.5px, 1.1vh, 10.5px)",
+                        color: item.isAdjacent ? "#24456B" : "#5A3A2A",
+                        WebkitFontSmoothing: "antialiased"
+                      }}
+                    >
+                      {getTrainerShortName(owner, language)}
+                    </span>
+
+                    {/* Pasek typów zintegrowany z układem */}
+                    <div className={`w-full h-1 flex gap-0.5 z-10 overflow-hidden rounded-full border border-cocoa/30 mt-auto shrink-0 ${isLocked ? "opacity-40" : ""}`}>
+                      {item.cells.map((cl) => {
+                        const cellBg = POKEMON_TYPES_PL[cl.primaryType]?.bgHex || "#94a3b8";
+                        return (
+                          <span 
+                            key={cl.id}
+                            className="flex-1 h-full first:rounded-l-full last:rounded-r-full"
+                            style={{ backgroundColor: cellBg }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
 
                 {/* Nakładka walki */}
                 {item.isAdjacent && (
-                  <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl z-20">
+                  <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-20">
                     <Swords className="h-4 w-4 text-pokemon-navy" />
                   </div>
                 )}
               </button>
             );
           })}
-
-          {/* Unikalny, wycentrowany geometrycznie znacznik gracza */}
-          {playerBadgeStyle && (
-            <div 
-              style={playerBadgeStyle}
-              className="bg-white border-2 border-[#24456B] shadow-[0_4px_0_#24456B] px-3.5 py-1.5 rounded-[20px] flex items-center justify-center gap-1.5 pointer-events-none z-20 animate-pulse"
-            >
-              <span className="text-xs select-none bg-lemon-yellow border border-cocoa rounded-full w-5 h-5 flex items-center justify-center text-cocoa font-black leading-none">⚡</span>
-              <span className="text-[10px] sm:text-xs font-black text-pokemon-navy tracking-widest uppercase font-display">{t.playerTileLabel}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -932,9 +932,9 @@ export default function App() {
 
       {/* 2. Explanations help drawer */}
       {showHelp && (
-        <div className="fixed inset-x-0 top-0 bottom-[68px] z-20 bg-cream-base flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
+        <div className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-start font-sans select-none overflow-hidden text-[#5A3A2A]">
           {/* Unified Header (Strictly matched to Graj h-16 format, preventing overflow or clipping) */}
-          <header className="h-16 w-full bg-cream-base border-b-2 border-cocoa px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
+          <header className="h-16 w-full bg-[#FFF4DF] border-b-2 border-cocoa px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
             <h2 className="font-display font-black tracking-tight text-sm sm:text-base text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
               <HelpCircle className="h-4 w-4 text-pokemon-navy" />
               <span>{t.guideTitle}</span>
