@@ -572,9 +572,9 @@ export default function App() {
 
               <div className="space-y-1 shrink-0 mt-1">
                 <span className="text-[10px] font-black tracking-widest text-[#24456B] uppercase bg-white-frost px-3.5 py-1 rounded-full border-2 border-cocoa shadow-sm font-display">
-                  OPANOWANIE OBSZARU
+                  {t.areaControl}
                 </span>
-                <p className="text-[10px] sm:text-[11px] text-[#5A3A2A]/85 mt-1.5 font-bold">Przeciwnik na tym polu:</p>
+                <p className="text-[10px] sm:text-[11px] text-[#5A3A2A]/85 mt-1.5 font-bold">{t.fieldOpponent}</p>
               </div>
 
               {/* Opponent Profile Presentation */}
@@ -590,7 +590,7 @@ export default function App() {
                   <span className="text-5xl md:text-6xl select-none leading-none">{selectedOpponent.avatar}</span>
                 </div>
                 <h3 className="font-display text-base sm:text-lg font-black text-cocoa tracking-tight leading-none mt-2">
-                  {selectedOpponent.name}
+                  {getTrainerName(selectedOpponent, language)}
                 </h3>
                 
                 {/* Difficulty tag */}
@@ -616,7 +616,7 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-[#5A3A2A] italic leading-relaxed line-clamp-3 font-bold">
-                  "{selectedOpponent.description}"
+                  {t["desc_" + selectedOpponent.id] || selectedOpponent.description}
                 </p>
               </div>
 
@@ -671,10 +671,10 @@ export default function App() {
 
             <div className="space-y-1.5">
               <h1 className="font-display text-2xl font-black text-pokemon-navy tracking-tight italic uppercase">
-                WYŚMIENITY POJEDYNEK!
+                {t.winTitle}
               </h1>
               <p className="text-xs text-cocoa font-bold">
-                Pomyślnie pokonałeś przeciwnika {selectedOpponent?.name}!
+                {t.winDesc} {selectedOpponent ? getTrainerName(selectedOpponent, language) : ""}!
               </p>
             </div>
 
@@ -741,19 +741,19 @@ export default function App() {
             </div>
 
             <div className="space-y-1.5">
-              <h1 className="font-display text-2xl font-black text-coral tracking-tight uppercase italic">
-                TWÓJ CZAS MINĄŁ!
+              <h1 className="font-display text-2xl font-black text-coral tracking-tight uppercase italic flex justify-center">
+                {t.gameOverTitle}
               </h1>
               <p className="text-xs text-cocoa font-bold leading-relaxed px-4">
-                Twoje Pokemony uległy pod presją czasu. Wyzwanie rzucone przez <strong className="text-pokemon-navy">{selectedOpponent?.name}</strong> okazało się zbyt wymagające!
+                {t.gameOverSub}
               </p>
             </div>
 
             {/* Defeat Advice box */}
             <div className="rounded-2xl bg-[#FFF4DF] border border-cocoa p-5 text-left space-y-2.5 shadow-md">
-              <h4 className="text-[10px] uppercase tracking-widest font-black text-pokemon-navy">💡 Szybka rada:</h4>
+              <h4 className="text-[10px] uppercase tracking-widest font-black text-pokemon-navy">{t.quickTipTitle}</h4>
               <p className="leading-relaxed text-xs text-cocoa font-bold">
-                Pamiętaj, że nazwy wpisujemy w języku angielskim (np. <strong className="font-mono text-[#24456B]">squirtle</strong>, <strong className="font-mono text-[#24456B]">jigglypuff</strong>). Każde pominięcie to 5 sekund kary, więc pasuj rozważnie!
+                {t.quickTipDesc}
               </p>
             </div>
 
@@ -764,14 +764,14 @@ export default function App() {
                   onClick={handleLaunchDuel}
                   className="w-full btn-core-yellow py-3.5"
                 >
-                  SPRÓBUJ PONOWNIE
+                  {t.tryAgainBtn}
                 </button>
 
                 <button
                   onClick={handleFullReset}
                   className="w-full btn-core-red py-3.5"
                 >
-                  ZACZNIJ OD NOWA
+                  {t.restartBtn}
                 </button>
               </div>
 
@@ -784,7 +784,7 @@ export default function App() {
                 }}
                 className="w-full btn-core-dark py-3.5"
               >
-                WRÓĆ NA MAPĘ
+                {t.returnMapBtn}
               </button>
             </div>
           </div>
@@ -980,7 +980,7 @@ export default function App() {
       )}
 
       {/* --- CORE FIXED BOTTOM BAR NAVIGATION (STAYS ON TOP AT ALL TIMES EXCEPT DURING POJEDYNEK) --- */}
-      {screen !== "duel" && (
+      {screen !== "duel" && screen !== "start" && (
         <footer 
           className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2.5 px-6 grid grid-cols-3 justify-items-center items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
           style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
@@ -992,7 +992,7 @@ export default function App() {
               setShowPokedex(false);
               setShowHelp(false);
             }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
               (screen === "board" || screen === "start") && !showPokedex && !showHelp 
                 ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
@@ -1007,7 +1007,7 @@ export default function App() {
               setShowPokedex(true);
               setShowHelp(false);
             }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
               showPokedex 
                 ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
@@ -1022,7 +1022,7 @@ export default function App() {
               setShowHelp(true);
               setShowPokedex(false);
             }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
               showHelp 
                 ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"

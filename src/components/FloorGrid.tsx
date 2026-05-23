@@ -37,22 +37,32 @@ export function getTrainerName(trainer: Trainer, language: "pl" | "en"): string 
 }
 
 export function getTrainerShortName(trainer: Trainer, language: "pl" | "en" = "pl"): string {
+  if (trainer.id === "giovanni") {
+    return "Gio";
+  }
+
+  let name = "";
   if (language === "pl") {
     const fullName = trainer.name;
-    if (fullName === "Łapacz Robaków") return "Łapacz";
-    if (fullName.includes("Ty") || fullName.toLowerCase().includes("ash")) return "Ty";
-    const parts = fullName.split(" ");
-    if (parts.length > 1) {
-      const titles = ["Obozowicz", "Piknikowiczka", "Naukowiec", "Rybak", "Oficer", "Pielęgniarka", "Czerwony"];
-      if (titles.includes(parts[0])) {
-        return parts[parts.length - 1];
+    if (fullName === "Łapacz Robaków") {
+      name = "Łapacz";
+    } else if (fullName.includes("Ty") || fullName.toLowerCase().includes("ash")) {
+      name = "Ty";
+    } else {
+      const parts = fullName.split(" ");
+      if (parts.length > 1) {
+        const titles = ["Obozowicz", "Piknikowiczka", "Naukowiec", "Rybak", "Oficer", "Pielęgniarka", "Czerwony"];
+        if (titles.includes(parts[0])) {
+          name = parts[parts.length - 1];
+        } else if (parts[0].endsWith(".")) {
+          name = parts[parts.length - 1];
+        } else {
+          name = parts[0];
+        }
+      } else {
+        name = fullName;
       }
-      if (parts[0].endsWith(".")) {
-        return parts[parts.length - 1];
-      }
-      return parts[0];
     }
-    return fullName;
   } else {
     const mapping: Record<string, string> = {
       gary: "Gary",
@@ -63,7 +73,7 @@ export function getTrainerShortName(trainer: Trainer, language: "pl" | "en" = "p
       koga: "Koga",
       sabrina: "Sabrina",
       blaine: "Blaine",
-      giovanni: "Giovanni",
+      giovanni: "Gio",
       jessie: "Jessie",
       james: "James",
       nurse_joy: "Joy",
@@ -81,8 +91,13 @@ export function getTrainerShortName(trainer: Trainer, language: "pl" | "en" = "p
       red: "Red",
       player: "You"
     };
-    return mapping[trainer.id] || trainer.name;
+    name = mapping[trainer.id] || trainer.name;
   }
+
+  if (name.length > 6) {
+    return name.substring(0, 5) + ".";
+  }
+  return name;
 }
 
 interface FloorGridProps {
@@ -172,10 +187,10 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-white border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
-          <span className="uppercase tracking-wider font-extrabold">{t.legendGridTarget || "Aktywne"}</span>
+          <span className="uppercase tracking-wider font-extrabold">{t.legendAvailable}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-[#EADFC9] border-2 border-[#5A3A2A] flex-shrink-0 flex items-center justify-center text-[8px] font-black text-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] leading-none">✕</span>
+          <span className="w-3 h-3 rounded bg-[#EADFC9] border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
           <span className="text-[#5A3A2A] uppercase tracking-wider font-extrabold">{t.legendLocked}</span>
         </div>
       </div>
