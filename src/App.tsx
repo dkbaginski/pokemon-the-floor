@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
-import { INITIAL_GRID, TRAINERS, GridCell, Trainer } from "./trainers";
-import { POKEMON_LIST, POKEMON_TYPES_PL, getPokemonImageUrl, getTypeName } from "./pokemonData";
-import FloorGrid, { getTrainerName } from "./components/FloorGrid";
+import { INITIAL_GRID, BOTS, Bot, GridCell } from "./bots";
+import { getPokemonImageUrl } from "./pokemonData";
+import FloorGrid from "./components/FloorGrid";
 import DuelArea from "./components/DuelArea";
 import PokedexView from "./components/PokedexView";
 import { translations } from "./translations";
-import { 
-  Trophy, 
-  RotateCcw, 
-  Sparkles, 
-  HelpCircle, 
-  BookOpen, 
-  Swords, 
-  Play, 
-  ShieldCheck, 
+import {
+  Trophy,
+  RotateCcw,
+  Sparkles,
+  HelpCircle,
+  BookOpen,
+  Swords,
+  Play,
+  ShieldCheck,
   Activity,
   ChevronRight,
   History,
@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 
 type ScreenState = "start" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
+
+const SHOWN_LOG_MAX = 50;
 
 export default function App() {
   // --- Language / Translation States ---
@@ -43,16 +45,17 @@ export default function App() {
   const [grid, setGrid] = useState<GridCell[]>(INITIAL_GRID);
   const [unlockedPokemonIds, setUnlockedPokemonIds] = useState<number[]>([]);
   const [seenPokemonIds, setSeenPokemonIds] = useState<number[]>([]);
-  
+  const [shownLog, setShownLog] = useState<number[]>([]);
+
   // --- Selected Battle states ---
   const [selectedCell, setSelectedCell] = useState<GridCell | null>(null);
-  const [selectedOpponent, setSelectedOpponent] = useState<Trainer | null>(null);
-  const [defenseMode, setDefenseMode] = useState(false); // If true, AI is attacking the player!
-  
+  const [selectedOpponent, setSelectedOpponent] = useState<Bot | null>(null);
+  const [defenseMode, setDefenseMode] = useState(false);
+
   // --- Active Duel variables ---
-  const [activeOpponent, setActiveOpponent] = useState<Trainer | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>("");
-  
+  const [activeOpponent, setActiveOpponent] = useState<Bot | null>(null);
+  const [activeBotPool, setActiveBotPool] = useState<number[]>([]);
+
   // --- Post-duel summary trackers ---
   const [duelStats, setDuelStats] = useState({
     winnerId: "",
@@ -66,7 +69,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showBattleLog, setShowBattleLog] = useState(false);
-  const [justConqueredCellId, setJustConqueredCellId] = useState<number | null>(null);
+  const [recentlyConqueredCellIds, setRecentlyConqueredCellIds] = useState<number[]>([]);
 
   interface LogItem {
     key: string;
@@ -80,21 +83,42 @@ export default function App() {
 
   const renderLogMessage = (item: any) => {
     if (typeof item === "string") return item;
-    let msg = t[item.key] || item.key;
+    let msg = (t as any)[item.key] || item.key;
     if (item.params) {
       Object.entries(item.params).forEach(([k, v]) => {
-        msg = msg.replace(`{${k}}`, v as string);
+        msg = (msg as string).replace(`{${k}}`, v as string);
       });
     }
-    return msg;
+    return msg as string;
   };
 
-  // --- Initialize Grid, Pokedex & Seen from LocalStorage ---
+  // Helper: localized bot name ("Gracz 7" / "Player 7").
+  const botName = (b: Bot | null): string => (b ? `${t.botLabel} ${b.number}` : "");
+
+  // --- Initialize Grid, Pokedex & Seen from LocalStorage (+ migrate legacy schema) ---
   useEffect(() => {
     const savedGrid = localStorage.getItem("the_floor_pokemon_grid");
     if (savedGrid) {
       try {
-        setGrid(JSON.parse(savedGrid));
+        const parsed = JSON.parse(savedGrid);
+        const isLegacy =
+          !Array.isArray(parsed) ||
+          parsed.length !== 25 ||
+          parsed.some(
+            (c: any) =>
+              c &&
+              (typeof c.primaryType !== "undefined" ||
+                typeof c.initialTrainerId !== "undefined" ||
+                (typeof c.currentOwnerId === "string" &&
+                  c.currentOwnerId !== "player" &&
+                  !c.currentOwnerId.startsWith("bot_")))
+          );
+        if (isLegacy) {
+          localStorage.removeItem("the_floor_pokemon_grid");
+          setGrid(INITIAL_GRID);
+        } else {
+          setGrid(parsed);
+        }
       } catch (e) {
         setGrid(INITIAL_GRID);
       }
@@ -123,6 +147,16 @@ export default function App() {
     } else {
       setSeenPokemonIds([]);
     }
+
+    const savedShown = localStorage.getItem("the_floor_pokemon_shown_log");
+    if (savedShown) {
+      try {
+        const parsed = JSON.parse(savedShown);
+        if (Array.isArray(parsed)) setShownLog(parsed.slice(-SHOWN_LOG_MAX));
+      } catch (e) {
+        setShownLog([]);
+      }
+    }
   }, []);
 
   const saveGridToStorage = (g: GridCell[]) => {
@@ -145,8 +179,22 @@ export default function App() {
       localStorage.setItem("the_floor_pokemon_pokedex", JSON.stringify(updated));
       return updated;
     });
-    // Ensure unlocked is also logged as seen
     handleSeePokemon(id);
+  };
+
+  // Clear the conquest-pulse highlight after the animation finishes (2.2s in CSS).
+  useEffect(() => {
+    if (recentlyConqueredCellIds.length === 0) return;
+    const timer = setTimeout(() => setRecentlyConqueredCellIds([]), 2200);
+    return () => clearTimeout(timer);
+  }, [recentlyConqueredCellIds]);
+
+  const handlePokemonShown = (id: number) => {
+    setShownLog((prev) => {
+      const next = [...prev, id].slice(-SHOWN_LOG_MAX);
+      localStorage.setItem("the_floor_pokemon_shown_log", JSON.stringify(next));
+      return next;
+    });
   };
 
   // --- Main reset trigger ---
@@ -161,7 +209,7 @@ export default function App() {
     setSelectedCell(null);
     setSelectedOpponent(null);
     setDefenseMode(false);
-    setJustConqueredCellId(null);
+    setRecentlyConqueredCellIds([]);
     setLogs([
       { key: "logReset1" },
       { key: "logReset2" }
@@ -177,9 +225,10 @@ export default function App() {
   const handleLaunchDuel = () => {
     if (!selectedCell || !selectedOpponent) return;
 
-    setJustConqueredCellId(null); // Reset previous conquered cell
+    setRecentlyConqueredCellIds([]);
+    setDefenseMode(false); // ensure no stale defense state after retry
     setActiveOpponent(selectedOpponent);
-    setActiveCategory(selectedCell.primaryType);
+    setActiveBotPool(selectedOpponent.pokemonPool);
     setScreen("duel");
   };
 
@@ -196,12 +245,10 @@ export default function App() {
     });
 
     if (winnerId === "player") {
-      // User WINS the duel!
-      const conqueredTrainerId = selectedOpponent?.id || "";
+      const conqueredBotId = selectedOpponent?.id || "";
 
-      // All lands currently belonging to the conquered trainer become player-owned
       const updatedGrid = grid.map((cell) => {
-        if (cell.currentOwnerId === conqueredTrainerId) {
+        if (cell.currentOwnerId === conqueredBotId) {
           return { ...cell, currentOwnerId: "player" };
         }
         return cell;
@@ -210,17 +257,21 @@ export default function App() {
       setGrid(updatedGrid);
       saveGridToStorage(updatedGrid);
 
-      // Set the just won cell id to trigger spectacular lava-flow visual takeover scaling animation in FloorGrid
-      const wonCellId = selectedCell?.id ?? null;
-      setJustConqueredCellId(wonCellId);
+      // Collect every cell that just flipped to the player (bot may own multiple tiles
+      // after prior AI-vs-AI fusions). Each animates the lava-takeover in parallel.
+      const flippedIds = updatedGrid
+        .filter((c) => {
+          const previous = grid.find((g) => g.id === c.id);
+          return c.currentOwnerId === "player" && previous?.currentOwnerId !== "player";
+        })
+        .map((c) => c.id);
+      setRecentlyConqueredCellIds(flippedIds);
 
-      // Add log
       setLogs((prev) => [
-        { key: "logVictory", params: { name: selectedOpponent ? getTrainerName(selectedOpponent, language) : "" } },
+        { key: "logVictory", params: { name: botName(selectedOpponent) } },
         ...prev
       ].slice(0, 10));
 
-      // Check if user conquered the entire floor (25 cells)
       const allPlayer = updatedGrid.every((c) => c.currentOwnerId === "player");
       if (allPlayer) {
         setScreen("victory");
@@ -228,22 +279,24 @@ export default function App() {
         setScreen("duel_win");
       }
     } else {
-      // User LOSES the duel!
       setLogs((prev) => [
-        { key: "logDefeat", params: { name: selectedOpponent ? getTrainerName(selectedOpponent, language) : "" } },
+        { key: "logDefeat", params: { name: botName(selectedOpponent) } },
         ...prev
       ].slice(0, 10));
       setScreen("duel_lose");
     }
   };
 
-  // --- Step: Wróć na planszę Safely + Simulating Board Turn ---
+  // --- Return to board safely + simulating board turn ---
   const handleReturnToBoardWithSimulation = () => {
     setSelectedCell(null);
     setSelectedOpponent(null);
     setScreen("board");
 
-    // Simulate standard AI-vs-AI or AI-attacks-Player event!
+    // Skip AI simulation when player already owns the whole board.
+    const ownedNow = grid.filter((c) => c.currentOwnerId === "player").length;
+    if (ownedNow >= 25) return;
+
     setTimeout(() => {
       simulateBoardEvent();
     }, 600);
@@ -251,7 +304,6 @@ export default function App() {
 
   // --- AI Territory Simulation Engine ---
   const simulateBoardEvent = () => {
-    // Find all unique remaining AI owners
     const aiOwners = Array.from(
       new Set(
         grid
@@ -260,20 +312,16 @@ export default function App() {
       )
     ) as string[];
 
-    if (aiOwners.length === 0) return; // Player already won everything
+    if (aiOwners.length === 0) return;
 
-    // 40% probability that an AI attacks somebody!
     if (Math.random() > 0.45) return;
 
-    // Pick a random attacker
     const randomAttackerId = aiOwners[Math.floor(Math.random() * aiOwners.length)];
-    const attackerTrainer = TRAINERS[randomAttackerId];
-    if (!attackerTrainer) return;
+    const attackerBot = BOTS[randomAttackerId];
+    if (!attackerBot) return;
 
-    // Find all cells owned by this attacker
     const attackerCells = grid.filter((c) => c.currentOwnerId === randomAttackerId);
-    
-    // Find neighbors of this attacker's group owned by others
+
     const attackableCells: GridCell[] = [];
     for (const aCell of attackerCells) {
       for (const cell of grid) {
@@ -287,38 +335,33 @@ export default function App() {
 
     if (attackableCells.length === 0) return;
 
-    // Attacker picks one target cell to attack
     const targetCell = attackableCells[Math.floor(Math.random() * attackableCells.length)];
     const defenderId = targetCell.currentOwnerId;
 
     if (defenderId === "player") {
-      // ⚠️ DANGER EVENT: AI attacks the Player!
-      // Provide user warning and let them defend in real-time duel
+      // AI attacks the player — trigger defense alert.
       setSelectedCell(targetCell);
-      setSelectedOpponent(attackerTrainer);
+      setSelectedOpponent(attackerBot);
       setDefenseMode(true);
-      
-      const typeDisplay = getTypeName(targetCell.primaryType, language);
+
       setLogs((prev) => [
-        { key: "logWarnAttack", params: { name: getTrainerName(attackerTrainer, language), type: typeDisplay } },
+        { key: "logWarnAttack", params: { name: botName(attackerBot) } },
         ...prev
       ].slice(0, 10));
     } else {
-      // Simulates AI-vs-AI fight!
-      const defenderTrainer = TRAINERS[defenderId];
-      if (!defenderTrainer) return;
+      // AI vs AI scuffle.
+      const defenderBot = BOTS[defenderId];
+      if (!defenderBot) return;
 
-      // Weighted coin toss based on difficulties
       let attackerWinProb = 0.5;
-      if (attackerTrainer.difficulty === "hard" && defenderTrainer.difficulty === "easy") attackerWinProb = 0.75;
-      if (attackerTrainer.difficulty === "easy" && defenderTrainer.difficulty === "hard") attackerWinProb = 0.25;
+      if (attackerBot.difficulty === "hard" && defenderBot.difficulty === "easy") attackerWinProb = 0.75;
+      if (attackerBot.difficulty === "easy" && defenderBot.difficulty === "hard") attackerWinProb = 0.25;
 
       const attackerWins = Math.random() < attackerWinProb;
       const loserId = attackerWins ? defenderId : randomAttackerId;
       const winnerId = attackerWins ? randomAttackerId : defenderId;
-      const winnerTrainer = attackerWins ? attackerTrainer : defenderTrainer;
+      const winnerBot = attackerWins ? attackerBot : defenderBot;
 
-      // Update grid: Conquer all cells belonging to the loser
       const updatedGrid = grid.map((cell) => {
         if (cell.currentOwnerId === loserId) {
           return { ...cell, currentOwnerId: winnerId };
@@ -333,9 +376,9 @@ export default function App() {
         {
           key: "logAiFight",
           params: {
-            attacker: getTrainerName(attackerTrainer, language),
-            defender: getTrainerName(defenderTrainer, language),
-            winner: getTrainerName(winnerTrainer, language)
+            attacker: botName(attackerBot),
+            defender: botName(defenderBot),
+            winner: botName(winnerBot)
           }
         },
         ...prev
@@ -343,23 +386,21 @@ export default function App() {
     }
   };
 
-  const activeCategoryDetail = selectedCell ? POKEMON_TYPES_PL[selectedCell.primaryType] : null;
   const showHeaderActions = screen !== "start" && screen !== "duel" && !showPokedex && !showHelp;
 
   return (
     <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl mx-auto h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between shadow-[0_6px_12px_rgba(90,58,42,0.18)] relative border-x-2 border-[#5A3A2A]/40 overflow-hidden font-sans">
-      
+
       {/* --- STANDARD TOP HEADER --- */}
       <header className="h-16 sticky top-0 z-30 bg-cream-base border-b-2 border-cocoa/30 px-4 flex items-center justify-between font-sans select-none shrink-0">
-        {/* Clickable clickable logo acts as passive shortcut back to Main Home screen without resetting state */}
-        <div 
+        <div
           onClick={() => {
             setScreen("start");
             setShowPokedex(false);
             setShowHelp(false);
           }}
           className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all text-cocoa"
-          title="Powrót do menu głównego"
+          title={language === "pl" ? "Powrót do menu głównego" : "Back to main menu"}
         >
           <div className="bg-[#FFD84D] text-[#24456B] font-black text-[11px] px-2.5 py-1 rounded-[12px] tracking-tight uppercase border border-cocoa shadow-sm">
             POKÉ
@@ -368,7 +409,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Language Switcher */}
           <button
             onClick={() => changeLanguage(language === "pl" ? "en" : "pl")}
             className="flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-white-frost border-2 border-cocoa/30 hover:bg-cafe-beige text-[10px] sm:text-xs font-black tracking-wider uppercase transition cursor-pointer text-cocoa"
@@ -378,7 +418,6 @@ export default function App() {
             <span className="font-mono text-[9px] sm:text-[10px]">{language === "pl" ? "PL" : "EN"}</span>
           </button>
 
-          {/* Combat History button */}
           {showHeaderActions && (
             <button
               onClick={() => setShowBattleLog(true)}
@@ -390,7 +429,6 @@ export default function App() {
             </button>
           )}
 
-          {/* Reset button */}
           {showHeaderActions && (
             <button
               onClick={handleFullReset}
@@ -405,21 +443,19 @@ export default function App() {
 
       {/* --- CORE CONTENT PANELS ROUTER --- */}
       <main className={`flex-1 px-4 pt-4 pb-20 ${screen === "start" || screen === "board" || screen === "challenge" || screen === "duel" ? "overflow-hidden" : "overflow-y-auto"}`}>
-        
+
         {/* SCREEN 1: START SCREEN */}
         {screen === "start" && (
           <div className="w-full h-full flex flex-col justify-between items-center fluid-py-container px-2 text-center font-sans select-none max-w-sm mx-auto">
-            
-            {/* Upper content group to cluster items on tall screens - fluid gap */}
+
             <div className="flex-1 flex flex-col justify-center items-center fluid-gap-medium w-full min-h-0">
-              
-              {/* Pulsing Visual Game badge - Elastic Scaling via fluid token classes */}
-              <div 
+
+              <div
                 className="relative rounded-full bg-white-frost flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_4px_8px_rgba(90,58,42,0.18)] shrink mb-1 fluid-badge-container sticker-hover"
               >
                 <div className="absolute inset-0 rounded-full bg-cafe-beige/20 animate-pulse" />
                 <img
-                  src={getPokemonImageUrl(25)} // Pikachu artwork
+                  src={getPokemonImageUrl(25)}
                   alt="Logo Game"
                   referrerPolicy="no-referrer"
                   className="object-contain z-10 animate-hover fluid-img-pikachu"
@@ -427,7 +463,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Title area */}
               <div className="space-y-1 shrink-0">
                 <span className="text-[11px] uppercase tracking-widest text-[#24456B] font-display font-black">{language === "pl" ? "Region Kanto" : "Kanto Region"}</span>
                 <h1 className="font-display text-2xl sm:text-3xl font-black tracking-tight leading-none italic uppercase text-[#5A3A2A]">
@@ -439,7 +474,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Quick rules block - compact and overflow hidden with fluid helper clamp */}
               <div className="w-full text-left rounded-3xl bg-cafe-beige border-2 border-[#5A3A2A] p-4.5 space-y-1.5 shadow-[0_4px_0_#5A3A2A] shrink max-h-[22vh] overflow-y-auto">
                 <span className="text-[10px] font-black text-[#5A3A2A] tracking-widest uppercase flex items-center gap-1.5 border-b border-cocoa/20 pb-1.5 shrink-0">
                   <Sparkles className="h-3.5 w-3.5 text-[#24456B] shrink-0" /> {t.rulesTitle}
@@ -470,7 +504,6 @@ export default function App() {
 
             </div>
 
-            {/* Button section - positioned with an elastic gap below and uniform core btn-core-yellow style */}
             <div className="w-full flex flex-col items-center gap-2 mt-4 shrink-0">
               <button
                  onClick={() => setScreen("board")}
@@ -497,8 +530,7 @@ export default function App() {
         {/* SCREEN 2: THE MAIN BOARD VIEW */}
         {screen === "board" && (
           <div className="h-full flex flex-col justify-between pb-2">
-            
-            {/* Header Battle Status */}
+
             <div className="rounded-2xl border-2 border-cocoa/40 bg-white-frost px-3.5 py-2 flex flex-col items-center justify-center text-center shadow-md select-none">
               <h4 className="text-xs font-black uppercase tracking-wider text-[#24456B] leading-tight mb-0.5">{t.boardBannerTitle}</h4>
               <p className="text-[11px] sm:text-xs font-bold text-[#5A3A2A]/80 leading-normal">
@@ -506,29 +538,29 @@ export default function App() {
               </p>
             </div>
 
-            {/* Simulated Live Alert dialog when AI attacks player */}
-            {selectedCell && defenseMode && (
+            {/* Defense alert */}
+            {selectedCell && defenseMode && selectedOpponent && (
               <div className="rounded-[24px] border-2 border-[#5A3A2A] bg-white-frost p-5 space-y-4 shadow-xl animate-pulse relative overflow-hidden shrink-0 mt-3">
                 <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-coral" />
                 <div className="flex items-center gap-2 text-coral font-black text-[10px] uppercase tracking-widest pl-2">
                   <ShieldCheck className="h-4 w-4 text-coral" />
                   <span>{t.defenseModeTitle}</span>
                 </div>
-                
+
                 <h3 className="text-sm font-black text-[#5A3A2A] leading-tight pl-2 uppercase">
-                  <span className="text-[#24456B] font-black">{selectedOpponent ? getTrainerName(selectedOpponent, language) : ""}</span> ({selectedOpponent?.avatar}) {t.defenseModeSubtitle}
+                  <span className="text-[#24456B] font-black">{botName(selectedOpponent)}</span> ({selectedOpponent.avatar}) {t.defenseModeSubtitle}
                 </h3>
-                
+
                 <p className="text-xs text-[#5A3A2A]/80 pl-2 leading-relaxed font-sans font-bold">
-                  {t.defenseDesc1}: <strong className="text-pokemon-navy uppercase">{getTypeName(selectedCell.primaryType, language)}</strong>. {t.defenseDesc2}
+                  {t.defenseDesc1} {t.defenseDesc2}
                 </p>
 
                 <div className="pt-1 pl-2">
                   <button
                     onClick={() => {
-                      setScreen("duel");
                       setActiveOpponent(selectedOpponent);
-                      setActiveCategory(selectedCell.primaryType);
+                      setActiveBotPool(selectedOpponent.pokemonPool);
+                      setScreen("duel");
                     }}
                     className="w-full btn-core-red py-3.5 flex items-center justify-center gap-1.5 shadow-lg"
                   >
@@ -539,16 +571,16 @@ export default function App() {
               </div>
             )}
 
-            {/* The 5x5 Grid representing Kanto board */}
+            {/* The 5x5 Grid */}
             {!defenseMode && (
               <div className="flex-1 flex flex-col justify-center min-h-0 fluid-map-scale">
                 <FloorGrid
                   grid={grid}
                   playerTerritorySize={playerTerritorySize}
-                  justConqueredCellId={justConqueredCellId}
-                  onSelectCell={(cell, owner) => {
+                  recentlyConqueredCellIds={recentlyConqueredCellIds}
+                  onSelectCell={(cell, bot) => {
                     setSelectedCell(cell);
-                    setSelectedOpponent(owner);
+                    setSelectedOpponent(bot);
                     setScreen("challenge");
                   }}
                   language={language}
@@ -560,14 +592,20 @@ export default function App() {
           </div>
         )}
 
-        {/* SCREEN 3: LAND PRE-CHALLENGE INTENT EXPANSION */}
+        {/* SCREEN 3: PRE-CHALLENGE INTENT EXPANSION */}
         {screen === "challenge" && selectedCell && selectedOpponent && (
           <div className="w-full h-full max-h-full flex flex-col justify-between items-center overflow-hidden py-1 px-2 text-center font-sans select-none">
             <div className="rounded-3xl border-2 border-cocoa bg-[#FFF4DF] p-5 text-center flex-1 flex flex-col justify-between w-full max-w-md shadow-xl relative overflow-hidden">
-              {/* Type Category accent color strip */}
-              <div 
+              <div
                 className="absolute top-0 left-0 right-0 h-1.5"
-                style={{ backgroundColor: POKEMON_TYPES_PL[selectedCell.primaryType]?.bgHex || "#24456B" }}
+                style={{
+                  backgroundColor:
+                    selectedOpponent.difficulty === "easy"
+                      ? "#A9E6CF"
+                      : selectedOpponent.difficulty === "medium"
+                      ? "#FFD84D"
+                      : "#FF7A62"
+                }}
               />
 
               <div className="space-y-1 shrink-0 mt-1">
@@ -577,12 +615,12 @@ export default function App() {
                 <p className="text-[10px] sm:text-[11px] text-[#5A3A2A]/85 mt-1.5 font-bold">{t.fieldOpponent}</p>
               </div>
 
-              {/* Opponent Profile Presentation */}
+              {/* Opponent profile */}
               <div className="flex flex-col items-center justify-center flex-1 py-1 shrink-1 min-h-0">
-                <div 
+                <div
                   className={`rounded-3xl flex items-center justify-center shadow-md border-2 border-cocoa flex-shrink-1 fluid-img-avatar ${selectedOpponent.avatarColor || "bg-indigo-600"}`}
-                  style={{ 
-                    aspectRatio: '1 / 1', 
+                  style={{
+                    aspectRatio: '1 / 1',
                     objectFit: 'contain',
                     flexShrink: 1
                   }}
@@ -590,14 +628,13 @@ export default function App() {
                   <span className="text-5xl md:text-6xl select-none leading-none">{selectedOpponent.avatar}</span>
                 </div>
                 <h3 className="font-display text-base sm:text-lg font-black text-cocoa tracking-tight leading-none mt-2">
-                  {getTrainerName(selectedOpponent, language)}
+                  {botName(selectedOpponent)}
                 </h3>
-                
-                {/* Difficulty tag */}
+
                 <div className="mt-1 flex gap-2 items-center text-xs justify-center shrink-0">
                   <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border-2 border-cocoa ${
-                    selectedOpponent.difficulty === "easy" 
-                      ? "text-cocoa bg-soft-mint" 
+                    selectedOpponent.difficulty === "easy"
+                      ? "text-cocoa bg-soft-mint"
                       : selectedOpponent.difficulty === "medium"
                       ? "text-cocoa bg-[#FFD84D]"
                       : "text-cocoa bg-coral"
@@ -607,16 +644,16 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Challenger category theme information */}
+              {/* Battle category — pool info */}
               <div className="rounded-2xl bg-white-frost p-3 border-2 border-cocoa text-left space-y-1.5 shrink-0 my-1 min-h-0 shadow-sm">
                 <div className="flex items-center gap-2 justify-between border-b border-cocoa/20 pb-1.5">
                   <span className="text-[10px] uppercase tracking-wider text-[#5A3A2A]/85 font-black">{t.challengeCategory}</span>
                   <span className="text-[10px] font-black font-display text-[#24456B] uppercase bg-cafe-beige/40 px-2 py-0.5 rounded border border-cocoa/40">
-                    {t.challengeType} {getTypeName(selectedCell.primaryType, language)}
+                    {selectedOpponent.pokemonPool.length} {t.botPoolSizeLabel}
                   </span>
                 </div>
-                <p className="text-[11px] sm:text-xs text-[#5A3A2A] italic leading-relaxed line-clamp-3 font-bold">
-                  {t["desc_" + selectedOpponent.id] || selectedOpponent.description}
+                <p className="text-[11px] sm:text-xs text-[#5A3A2A] leading-relaxed font-bold text-center pt-1">
+                  {t.difficultyLabel} <strong className="text-pokemon-navy uppercase">{t[selectedOpponent.difficulty]}</strong>
                 </p>
               </div>
 
@@ -649,7 +686,9 @@ export default function App() {
         {screen === "duel" && activeOpponent && (
           <DuelArea
             opponent={activeOpponent}
-            categoryType={activeCategory}
+            pokemonPool={activeBotPool}
+            recentlyShownIds={shownLog}
+            onPokemonShown={handlePokemonShown}
             onUnlockPokemon={handleUnlockPokemon}
             onSeePokemon={handleSeePokemon}
             onDuelFinish={handleDuelFinish}
@@ -661,11 +700,10 @@ export default function App() {
         {/* SCREEN 5: DUEL WIN CELEBRATION */}
         {screen === "duel_win" && (
           <div className="space-y-6 pt-2 text-center select-none max-w-sm mx-auto">
-            {/* Crown avatar badge */}
             <div className="h-28 w-28 rounded-full bg-[#FFD84D] border-2 border-cocoa shadow-[0_4px_0_#5A3A2A] flex items-center justify-center mx-auto my-2 relative">
               <Trophy className="h-12 w-12 text-[#24456B] drop-shadow-sm animate-bounce" />
               <div className="absolute -top-1.5 right-0 rounded-full bg-soft-mint text-cocoa text-[9px] px-2.5 py-0.5 font-black uppercase tracking-wider border border-cocoa shadow-sm">
-                + LAND
+                {t.winLandBadge}
               </div>
             </div>
 
@@ -674,59 +712,57 @@ export default function App() {
                 {t.winTitle}
               </h1>
               <p className="text-xs text-cocoa font-bold">
-                {t.winDesc} {selectedOpponent ? getTrainerName(selectedOpponent, language) : ""}!
+                {t.winDesc} {botName(selectedOpponent)}!
               </p>
             </div>
 
-            {/* Grid victory card stats */}
             <div className="rounded-[24px] bg-white border-2 border-cocoa p-5 space-y-4 text-left shadow-md">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#5A3A2A] border-b border-cocoa/20 pb-2.5 flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-[#24456B]" /> PODSUMOWANIE STATYSTYK:
+                <Sparkles className="h-4 w-4 text-[#24456B]" /> {t.statsTitle}
               </h4>
 
               <div className="grid grid-cols-2 gap-4 text-xs font-bold text-cocoa">
                 <div>
-                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">Pokemony:</span>
+                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">{t.statsPokemons}</span>
                   <p className="text-sm font-black text-[#24456B] mt-0.5">
-                    {duelStats.userCorrect} Prawidłowo
+                    {duelStats.userCorrect} {t.statsCorrect}
                   </p>
                 </div>
 
                 <div>
-                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">Pominięcia:</span>
+                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">{t.statsPassed}</span>
                   <p className="text-sm font-black text-coral mt-0.5">
-                    {duelStats.userPassed} razy
+                    {duelStats.userPassed} {t.statsPassedTimes}
                   </p>
                 </div>
 
                 <div>
-                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">Pozostały Czas:</span>
+                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">{t.statsRemainingTime}</span>
                   <p className="text-sm font-black text-[#24456B] font-mono mt-0.5">
                     {duelStats.timerRemaining.toFixed(1)}s
                   </p>
                 </div>
 
                 <div>
-                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">Zajęty Typ:</span>
+                  <span className="text-[#5A3A2A]/80 text-[10px] uppercase font-black">{t.statsBotConquered}</span>
                   <p className="text-sm font-black text-coral uppercase mt-0.5">
-                    {POKEMON_TYPES_PL[activeCategory]?.namePl || activeCategory}
+                    {botName(selectedOpponent)}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Options of next steps */}
             <div className="space-y-2.5 pt-2">
               <button
                 onClick={handleReturnToBoardWithSimulation}
                 className="w-full btn-core-yellow py-4 flex items-center justify-center gap-1.5"
               >
-                <span>WRÓĆ NA PLANSZĘ (BEZPIECZNIE)</span>
+                <span>{t.returnToBoardBtn}</span>
                 <ChevronRight className="h-4 w-4 stroke-[3]" />
               </button>
 
               <p className="text-[10px] text-[#5A3A2A]/80 px-3 tracking-wide leading-relaxed uppercase font-black">
-                * Po powrocie na planszę, inni trenerzy mogą zaatakować terytoria!
+                {t.nextStepWarning}
               </p>
             </div>
           </div>
@@ -735,29 +771,26 @@ export default function App() {
         {/* SCREEN 6: DUEL LOSE OVERLAY GAME OVER */}
         {screen === "duel_lose" && (
           <div className="space-y-6 pt-2 text-center max-w-sm mx-auto select-none font-sans text-cocoa">
-            {/* Ghost pokemon background shadow */}
             <div className="h-28 w-28 rounded-full bg-coral/25 border-2 border-dashed border-[#5A3A2A] flex items-center justify-center shadow-md mx-auto my-2">
               <span className="text-5xl">👻</span>
             </div>
 
             <div className="space-y-1.5">
-              <h1 className="font-display text-2xl font-black text-coral tracking-tight uppercase italic flex justify-center">
+              <h1 className="font-display text-2xl font-black text-coral tracking-tight uppercase italic">
                 {t.gameOverTitle}
               </h1>
               <p className="text-xs text-cocoa font-bold leading-relaxed px-4">
-                {t.gameOverSub}
+                {t.gameOverDesc}{selectedOpponent ? ` — ${botName(selectedOpponent)}.` : "."}
               </p>
             </div>
 
-            {/* Defeat Advice box */}
             <div className="rounded-2xl bg-[#FFF4DF] border border-cocoa p-5 text-left space-y-2.5 shadow-md">
-              <h4 className="text-[10px] uppercase tracking-widest font-black text-pokemon-navy">{t.quickTipTitle}</h4>
+              <h4 className="text-[10px] uppercase tracking-widest font-black text-pokemon-navy">💡 {t.quickTipTitle}</h4>
               <p className="leading-relaxed text-xs text-cocoa font-bold">
                 {t.quickTipDesc}
               </p>
             </div>
 
-            {/* Restart Duel/Game triggers */}
             <div className="space-y-3 pt-2">
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -771,7 +804,7 @@ export default function App() {
                   onClick={handleFullReset}
                   className="w-full btn-core-red py-3.5"
                 >
-                  {t.restartBtn}
+                  {t.restartGameBtn}
                 </button>
               </div>
 
@@ -784,7 +817,7 @@ export default function App() {
                 }}
                 className="w-full btn-core-dark py-3.5"
               >
-                {t.returnMapBtn}
+                {t.returnToMapBtn}
               </button>
             </div>
           </div>
@@ -799,23 +832,22 @@ export default function App() {
             </div>
 
             <div className="space-y-1.5">
-              <p className="text-xs text-pokemon-navy tracking-widest font-black uppercase">PEŁNY PODBÓJ KANTO!</p>
+              <p className="text-xs text-pokemon-navy tracking-widest font-black uppercase">{t.fullConquestLabel}</p>
               <h1 className="font-display text-3xl font-black text-pokemon-navy">
-                ZOSTAŁEŚ MISTRZEM LIGI THE FLOOR!
+                {t.championSub}
               </h1>
               <p className="text-xs text-cocoa font-bold px-3">
-                Zwyciężyłeś wszystkich trenerów i opanowałeś wszystkie 25 terytoria! Jesteś prawdziwym Pokemon Master!
+                {t.championDesc}
               </p>
             </div>
 
-            {/* Scorecard panel */}
             <div className="rounded-2xl bg-[#FFF4DF] border-2 border-cocoa p-4 space-y-2 text-xs text-left shadow-sm">
               <div className="flex justify-between items-center text-cocoa font-bold py-1">
-                <span>Wszystkie regiony:</span>
-                <span className="font-black text-[#24456B] font-mono">25 / 25 CONQUERED</span>
+                <span>{t.allRegions}</span>
+                <span className="font-black text-[#24456B] font-mono">{t.regionsConquered}</span>
               </div>
               <div className="flex justify-between items-center text-cocoa font-bold py-1 border-t border-cocoa/20">
-                <span>Kolekcja Pokédex:</span>
+                <span>{t.pokedexCollection}</span>
                 <span className="font-black text-coral font-mono">{unlockedPokemonIds.length} / 151</span>
               </div>
             </div>
@@ -825,7 +857,7 @@ export default function App() {
                 onClick={handleFullReset}
                 className="w-full btn-core-yellow py-4"
               >
-                ZACZNIJ KOLEJNY PODBÓJ
+                {t.conquestResetBtn}
               </button>
             </div>
           </div>
@@ -835,27 +867,23 @@ export default function App() {
 
       {/* --- SIDE OVERLAYS / DRAWERS --- */}
 
-      {/* 1. Pokedex view list Drawer overlay */}
       {showPokedex && (
         <PokedexView
           unlockedIds={unlockedPokemonIds}
           seenIds={seenPokemonIds}
           onClose={() => setShowPokedex(false)}
-          playerActiveTypes={grid.filter((c) => c.currentOwnerId === "player").map((c) => c.primaryType)}
+          playerActiveTypes={[]}
           language={language}
           t={t}
         />
       )}
 
-      {/* Battle Log Modal Drawer */}
       {showBattleLog && (
         <div className="fixed inset-0 z-[60] bg-cocoa/55 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-cream-base border-2 border-cocoa rounded-[24px] flex flex-col h-[75dvh] max-h-[550px] shadow-lg overflow-hidden relative font-sans text-cocoa">
-            
-            {/* Background gradient layout accent */}
+
             <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-cafe-beige/20 to-transparent pointer-events-none" />
 
-            {/* Modal Header */}
             <header className="h-16 w-full bg-cream-base border-b-2 border-cocoa px-6 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
               <h2 className="font-display font-black tracking-tight text-xs sm:text-sm text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
                 <Activity className="h-4 w-4 text-pokemon-navy" />
@@ -870,7 +898,6 @@ export default function App() {
               </button>
             </header>
 
-            {/* Modal Body / Scrollable logs area with Isolated Scrolling */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5 bg-[#FFF4DF]">
               {logs.length === 0 ? (
                 <div className="text-center py-12 text-cocoa/50 text-xs font-black uppercase tracking-widest leading-normal">
@@ -879,14 +906,10 @@ export default function App() {
               ) : (
                 logs.map((log, index) => {
                   const messageText = renderLogMessage(log);
-                  const isWin = typeof log === "string" 
-                    ? (log.includes("Zwycięstwo") || log.includes("reprezentując Alabastię") || log.includes("Zwyciężył")) 
-                    : (log.key === "logVictory" || log.key === "logInit1" || log.key === "logInit2" || log.key === "logReset1" || log.key === "logReset2");
-                  const isLose = typeof log === "string" 
-                    ? (log.includes("Porażka") || log.includes("atakuje Twoje terytorium") || log.includes("UWAGA") || log.includes("💀")) 
-                    : (log.key === "logDefeat" || log.key === "logWarnAttack");
-                  
-                  let borderColor = "border-[#24456B]"; // standard/blue
+                  const isWin = log.key === "logVictory" || log.key === "logInit1" || log.key === "logInit2" || log.key === "logReset1" || log.key === "logReset2";
+                  const isLose = log.key === "logDefeat" || log.key === "logWarnAttack";
+
+                  let borderColor = "border-[#24456B]";
                   let bgTint = "bg-[#BDEBFF]/20";
                   if (isWin) {
                     borderColor = "border-soft-mint";
@@ -899,8 +922,8 @@ export default function App() {
                   const iconEmoji = isLose ? "💀" : (log.key === "logWarnAttack" ? "🔥" : "⚔️");
 
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className={`flex gap-3 items-start p-3 bg-gradient-to-r ${borderColor} border-l-4 border-y border-r border-[#5A3A2A]/40 rounded-r-2xl transition duration-150 hover:bg-white-frost/30 shadow-sm`}
                       style={{ background: bgTint }}
                     >
@@ -916,7 +939,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 bg-cafe-beige border-t-2 border-cocoa shrink-0">
               <button
                 onClick={() => setShowBattleLog(false)}
@@ -930,11 +952,9 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Explanations help drawer */}
       {showHelp && (
-        <div className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-start font-sans select-none overflow-hidden text-[#5A3A2A]">
-          {/* Unified Header (Strictly matched to Graj h-16 format, preventing overflow or clipping) */}
-          <header className="h-16 w-full bg-[#FFF4DF] border-b-2 border-cocoa px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
+        <div className="fixed inset-x-0 top-0 bottom-[68px] z-20 bg-cream-base flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
+          <header className="h-16 w-full bg-cream-base border-b-2 border-cocoa px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
             <h2 className="font-display font-black tracking-tight text-sm sm:text-base text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
               <HelpCircle className="h-4 w-4 text-pokemon-navy" />
               <span>{t.guideTitle}</span>
@@ -979,9 +999,8 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CORE FIXED BOTTOM BAR NAVIGATION (STAYS ON TOP AT ALL TIMES EXCEPT DURING POJEDYNEK) --- */}
-      {screen !== "duel" && screen !== "start" && (
-        <footer 
+      {screen !== "duel" && (
+        <footer
           className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2.5 px-6 grid grid-cols-3 justify-items-center items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
           style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
         >
@@ -992,9 +1011,9 @@ export default function App() {
               setShowPokedex(false);
               setShowHelp(false);
             }}
-            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
-              (screen === "board" || screen === "start") && !showPokedex && !showHelp 
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
+            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+              (screen === "board" || screen === "start") && !showPokedex && !showHelp
+                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
             }`}
           >
@@ -1007,9 +1026,9 @@ export default function App() {
               setShowPokedex(true);
               setShowHelp(false);
             }}
-            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
-              showPokedex 
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
+            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+              showPokedex
+                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
             }`}
           >
@@ -1022,9 +1041,9 @@ export default function App() {
               setShowHelp(true);
               setShowPokedex(false);
             }}
-            className={`w-28 flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 rounded-xl border-2 ${
-              showHelp 
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]" 
+            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
+              showHelp
+                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
                 : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
             }`}
           >
@@ -1034,14 +1053,13 @@ export default function App() {
         </footer>
       )}
 
-      {/* 4. Beautiful Custom Game Reset Confirmation Dialog Modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-[60] bg-cocoa/55 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-xs bg-cream-base border-2 border-cocoa rounded-[24px] p-6 text-center space-y-4 shadow-lg">
             <div className="h-14 w-14 bg-coral/20 border-2 border-cocoa text-coral text-2xl flex items-center justify-center rounded-full mx-auto animate-pulse select-none">
               ⚠️
             </div>
-            
+
             <div className="space-y-1">
               <h3 className="font-display font-black text-base text-[#5A3A2A] uppercase italic tracking-tight">
                 {t.resetTitle}
@@ -1050,7 +1068,7 @@ export default function App() {
                 {t.resetDesc}
               </p>
             </div>
-            
+
             <div className="pt-2 space-y-2">
               <button
                 onClick={executeFullReset}
@@ -1058,7 +1076,7 @@ export default function App() {
               >
                 {t.resetConfirmBtn}
               </button>
-              
+
               <button
                 onClick={() => setShowResetConfirm(false)}
                 className="w-full btn-core-dark py-3"

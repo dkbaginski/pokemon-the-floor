@@ -1,160 +1,85 @@
-import { CSSProperties } from "react";
-import { GridCell, Trainer, TRAINERS } from "../trainers";
-import { POKEMON_TYPES_PL, getTypeName } from "../pokemonData";
+import { GridCell, Bot, BOTS, PLAYER_PROFILE } from "../bots";
 import { Shield, Swords, Compass } from "lucide-react";
 
-export function getTrainerName(trainer: Trainer, language: "pl" | "en"): string {
-  if (language === "pl") return trainer.name;
-  
-  const mapping: Record<string, string> = {
-    gary: "Gary Oak",
-    brock: "Brock",
-    misty: "Misty",
-    lt_surge: "Lt. Surge",
-    erika: "Erika",
-    koga: "Koga",
-    sabrina: "Sabrina",
-    blaine: "Blaine",
-    giovanni: "Giovanni",
-    jessie: "Jessie",
-    james: "James",
-    nurse_joy: "Nurse Joy",
-    officer_jenny: "Officer Jenny",
-    bug_catcher: "Bug Catcher",
-    lass_carrie: "Lass Carrie",
-    fisherman: "Fisherman Ralph",
-    lorelei: "Lorelei",
-    bruno: "Bruno",
-    agatha: "Agatha",
-    lance: "Lance",
-    camper: "Camper Liam",
-    picnicker: "Picnicker Diana",
-    scientist: "Scientist Taylor",
-    red: "Red",
-    player: "You (Ash)"
-  };
-  return mapping[trainer.id] || trainer.name;
-}
-
-export function getTrainerShortName(trainer: Trainer, language: "pl" | "en" = "pl"): string {
-  if (trainer.id === "giovanni") {
-    return "Gio";
-  }
-
-  let name = "";
-  if (language === "pl") {
-    const fullName = trainer.name;
-    if (fullName === "Łapacz Robaków") {
-      name = "Łapacz";
-    } else if (fullName.includes("Ty") || fullName.toLowerCase().includes("ash")) {
-      name = "Ty";
-    } else {
-      const parts = fullName.split(" ");
-      if (parts.length > 1) {
-        const titles = ["Obozowicz", "Piknikowiczka", "Naukowiec", "Rybak", "Oficer", "Pielęgniarka", "Czerwony"];
-        if (titles.includes(parts[0])) {
-          name = parts[parts.length - 1];
-        } else if (parts[0].endsWith(".")) {
-          name = parts[parts.length - 1];
-        } else {
-          name = parts[0];
-        }
-      } else {
-        name = fullName;
-      }
-    }
-  } else {
-    const mapping: Record<string, string> = {
-      gary: "Gary",
-      brock: "Brock",
-      misty: "Misty",
-      lt_surge: "Surge",
-      erika: "Erika",
-      koga: "Koga",
-      sabrina: "Sabrina",
-      blaine: "Blaine",
-      giovanni: "Gio",
-      jessie: "Jessie",
-      james: "James",
-      nurse_joy: "Joy",
-      officer_jenny: "Jenny",
-      bug_catcher: "Catcher",
-      lass_carrie: "Carrie",
-      fisherman: "Ralph",
-      lorelei: "Lorelei",
-      bruno: "Bruno",
-      agatha: "Agatha",
-      lance: "Lance",
-      camper: "Liam",
-      picnicker: "Diana",
-      scientist: "Taylor",
-      red: "Red",
-      player: "You"
-    };
-    name = mapping[trainer.id] || trainer.name;
-  }
-
-  if (name.length > 6) {
-    return name.substring(0, 5) + ".";
-  }
-  return name;
+// Short label for a tile — used inside grid cells and in the duel header.
+// Player → "TY" / "YOU"; bots → "Gracz N" / "Player N".
+export function getOwnerShortLabel(owner: Bot | typeof PLAYER_PROFILE, t: any): string {
+  if (owner.id === "player") return t.playerTileLabel;
+  return `${t.botLabel} ${(owner as Bot).number}`;
 }
 
 interface FloorGridProps {
   grid: GridCell[];
-  onSelectCell: (cell: GridCell, trainer: Trainer) => void;
+  onSelectCell: (cell: GridCell, bot: Bot) => void;
   playerTerritorySize: number;
-  justConqueredCellId?: number | null;
+  recentlyConqueredCellIds?: number[];
   language: "pl" | "en";
   t: any;
 }
 
 interface GridItem {
   key: string;
+  cell: GridCell;
   gridRowStart: number;
   gridColStart: number;
-  rowSpan: number;
-  colSpan: number;
   isPlayer: boolean;
-  cells: GridCell[];
   isAdjacent: boolean;
   isJustConquered: boolean;
-  primaryType: string;
+  // Polygon merge flags — true when neighbour is also owned by the player
+  // (recently-conquered cells count as player; they sit inside playerFieldsSet).
+  mergeTop: boolean;
+  mergeRight: boolean;
+  mergeBottom: boolean;
+  mergeLeft: boolean;
 }
 
-export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, justConqueredCellId, language, t }: FloorGridProps) {
-  
-  // O(1) Wykorzystanie zestawu struktur współrzędnych dla błyskawicznego mapowania
+const DIFFICULTY_HEX: Record<"easy" | "medium" | "hard", string> = {
+  easy: "#A9E6CF",   // Soft Mint
+  medium: "#FFD84D", // Lemon Yellow
+  hard: "#FF7A62"    // Coral
+};
+
+export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language, t }: FloorGridProps) {
+
+  // Player owns this position — used for both adjacency and polygon merging.
+  // Just-conquered cells stay inside the set so neighbours light up immediately and
+  // the lava-takeover animation merges seamlessly with the rest of the player polygon.
   const playerFieldsSet = new Set(
     grid
-      .filter(c => c.currentOwnerId === "player" && c.id !== justConqueredCellId)
+      .filter(c => c.currentOwnerId === "player")
       .map(c => `${c.row}-${c.col}`)
   );
+
+  const isPlayerAt = (row: number, col: number) => playerFieldsSet.has(`${row}-${col}`);
 
   const isCellAdjacentToPlayer = (cell: GridCell) => {
     if (cell.currentOwnerId === "player") return false;
     const { row, col } = cell;
     return (
-      playerFieldsSet.has(`${row - 1}-${col}`) ||
-      playerFieldsSet.has(`${row + 1}-${col}`) ||
-      playerFieldsSet.has(`${row}-${col - 1}`) ||
-      playerFieldsSet.has(`${row}-${col + 1}`)
+      isPlayerAt(row - 1, col) ||
+      isPlayerAt(row + 1, col) ||
+      isPlayerAt(row, col - 1) ||
+      isPlayerAt(row, col + 1)
     );
   };
 
+  const justConqueredSet = new Set(recentlyConqueredCellIds);
+
   const gridItems: GridItem[] = grid.map((cell) => {
-    const isPCell = cell.currentOwnerId === "player" && cell.id !== justConqueredCellId;
+    const isPlayer = cell.currentOwnerId === "player";
+    const isJustConquered = justConqueredSet.has(cell.id);
     return {
       key: `cell-${cell.id}`,
+      cell,
       gridRowStart: cell.row + 1,
       gridColStart: cell.col + 1,
-      rowSpan: 1,
-      colSpan: 1,
-      isPlayer: isPCell,
-      cells: [cell],
+      isPlayer,
+      isJustConquered,
       isAdjacent: isCellAdjacentToPlayer(cell),
-      isJustConquered: cell.id === justConqueredCellId,
-      primaryType: cell.primaryType
+      mergeTop:    isPlayer && isPlayerAt(cell.row - 1, cell.col),
+      mergeRight:  isPlayer && isPlayerAt(cell.row,     cell.col + 1),
+      mergeBottom: isPlayer && isPlayerAt(cell.row + 1, cell.col),
+      mergeLeft:   isPlayer && isPlayerAt(cell.row,     cell.col - 1)
     };
   });
 
@@ -169,7 +94,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
             <span className="block text-xs font-black text-[#24456B] whitespace-nowrap">{t.statsRegions}</span>
           </div>
         </div>
-        
+
         <div className="w-1/2 flex items-center gap-2 text-xs text-pokemon-navy bg-[#FFD84D] border-2 border-pokemon-navy px-3 py-2 rounded-[20px] font-black justify-center shadow-[0_3px_0_#24456B]">
           <Shield className="h-3.5 w-3.5 text-pokemon-navy shrink-0" />
           <div className="text-left leading-tight">
@@ -195,68 +120,88 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
         </div>
       </div>
 
-      {/* Kontener Główny Planszy - Wyraźny kontrast i piękny Plush Sticker visual */}
+      {/* Kontener Główny Planszy */}
       <div className="relative overflow-hidden rounded-[24px] bg-[#F2D5A7] p-2.5 sm:p-3.5 shadow-[0_6px_0_#5A3A2A] border-2 border-[#5A3A2A]">
-        {/* Usunięcie gap-0 i przywrócenie gap-1.5 dla uzyskania czystej formy wyspowej */}
-        <div 
-          className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#F2D5A7]"
-        >
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#F2D5A7]">
           {gridItems.map((item) => {
-            const representativeCell = item.cells[0];
-            const owner = TRAINERS[representativeCell.currentOwnerId] || TRAINERS.player;
-            const originalTrainer = TRAINERS[representativeCell.initialTrainerId] || TRAINERS.player;
+            const cell = item.cell;
+            const ownerBot = BOTS[cell.currentOwnerId];
+            const isPlayerTile = item.isPlayer; // recently-conquered cells already in here
+            const isLocked = !isPlayerTile && !item.isAdjacent;
 
-            // Stark Contrast - Nowe definicje tła eliminujące pastelowy zlew plus neutralne Stone dla pól zablokowanych
+            // Background / interaction class
             const bgClass = item.isJustConquered
-              ? "animate-lava-takeover bg-[#FFD84D] text-[#5A3A2A]"
-              : item.isPlayer
+              ? "animate-lava-takeover bg-[#FFD84D] text-[#24456B]"
+              : isPlayerTile
               ? "bg-[#FFD84D] cursor-default text-[#24456B]"
               : item.isAdjacent
               ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
               : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
 
-            const isLocked = !item.isPlayer && !item.isAdjacent && !item.isJustConquered;
+            // --- Polygon merging classes (player tiles only) ----------------
+            // Border, corner-radius, negative-margin (to swallow the grid gap),
+            // and drop-shadow toggles depending on whether each side touches
+            // another player-owned tile.
+            const playerBorderClass = isPlayerTile
+              ? `border-[#5A3A2A] ${item.mergeTop ? "border-t-0" : "border-t-2"} ${item.mergeRight ? "border-r-0" : "border-r-2"} ${item.mergeBottom ? "border-b-0" : "border-b-2"} ${item.mergeLeft ? "border-l-0" : "border-l-2"}`
+              : "border-2 border-[#5A3A2A]";
 
-            const tooltipText = item.isPlayer
-              ? (language === "pl" ? `Twoje terytorium (${item.cells.length} regionów)` : `Your territory (${item.cells.length} regions)`)
-              : (language === "pl" 
-                  ? `Region: ${getTrainerName(originalTrainer, language)} (${getTypeName(item.primaryType, language)}), Lider: ${getTrainerName(owner, language)}`
-                  : `Region: ${getTrainerName(originalTrainer, language)} (${getTypeName(item.primaryType, language)}), Leader: ${getTrainerName(owner, language)}`);
+            const playerCornerClass = isPlayerTile
+              ? `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`
+              : "rounded-xl sm:rounded-2xl";
+
+            // gap-1.5 = 6px / sm:gap-2.5 = 10px → half on each side eats the gap when merged.
+            const playerMarginClass = isPlayerTile
+              ? `${item.mergeTop ? "-mt-[3px] sm:-mt-[5px]" : ""} ${item.mergeRight ? "-mr-[3px] sm:-mr-[5px]" : ""} ${item.mergeBottom ? "-mb-[3px] sm:-mb-[5px]" : ""} ${item.mergeLeft ? "-ml-[3px] sm:-ml-[5px]" : ""}`
+              : "";
+
+            const playerShadowClass = isPlayerTile
+              ? (item.mergeBottom ? "" : "shadow-[0_3px_0_#5A3A2A]")
+              : "shadow-[0_3px_0_#5A3A2A]";
+
+            // Player tile sits above neighbouring rivals so the negative margins overlap cleanly.
+            const playerZClass = isPlayerTile ? "z-10" : "";
+
+            const tooltipText = isPlayerTile
+              ? `${t.botTooltipYourTerritory} (${playerFieldsSet.size})`
+              : ownerBot
+                ? `${t.botTooltipRegion}: ${t.botLabel} ${ownerBot.number} · ${t[ownerBot.difficulty]}`
+                : "";
 
             return (
               <button
                 key={item.key}
                 onClick={() => {
-                  if (item.isAdjacent) onSelectCell(representativeCell, owner);
+                  if (item.isAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
                 disabled={!item.isAdjacent}
-                className={`relative flex flex-col items-center justify-between p-1 pt-1.5 pb-1 transition-all outline-none border-2 border-[#5A3A2A] rounded-xl sm:rounded-2xl shadow-[0_3px_0_#5A3A2A] active:shadow-none active:translate-y-0.5 ${bgClass}`}
+                className={`relative flex flex-col items-center justify-between p-1 pt-1.5 pb-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${playerBorderClass} ${playerCornerClass} ${playerMarginClass} ${playerShadowClass} ${playerZClass} ${bgClass}`}
                 style={{
                   gridRow: `${item.gridRowStart} / span 1`,
                   gridColumn: `${item.gridColStart} / span 1`,
                 }}
                 title={tooltipText}
               >
-                {/* Opcja dla kafelka gracza */}
-                {(item.isPlayer || item.isJustConquered) && (
+                {/* Player tile */}
+                {isPlayerTile && (
                   <div className="flex flex-col items-center justify-center my-auto h-full w-full select-none gap-0.5 sm:gap-1">
                     <span className="text-base sm:text-xl lg:text-2xl animate-pulse">⚡</span>
                     <span className="font-display font-black text-[9px] sm:text-[10px] text-[#24456B] uppercase tracking-wider leading-none">
-                      {language === "pl" ? "TY" : "YOU"}
+                      {t.playerTileLabel}
                     </span>
                   </div>
                 )}
 
-                {/* For non-player fields (Opponent fields, adjacent or locked) */}
-                {!(item.isPlayer || item.isJustConquered) && (
+                {/* Bot tile */}
+                {!isPlayerTile && ownerBot && (
                   <>
-                    {/* Avatar lidera */}
+                    {/* Bot avatar */}
                     <span className={`text-base sm:text-xl z-10 select-none transition-all leading-none ${isLocked ? "grayscale opacity-40" : ""}`}>
-                      {owner.avatar}
+                      {ownerBot.avatar}
                     </span>
 
-                    {/* Czytelne imię bez ucinania */}
-                    <span 
+                    {/* Bot label */}
+                    <span
                       className="z-10 select-none block text-center antialiased whitespace-nowrap leading-none px-0.5 w-full uppercase tracking-tight my-auto font-black"
                       style={{
                         fontSize: "clamp(8.5px, 1.1vh, 10.5px)",
@@ -264,26 +209,21 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, jus
                         WebkitFontSmoothing: "antialiased"
                       }}
                     >
-                      {getTrainerShortName(owner, language)}
+                      {t.botLabel} {ownerBot.number}
                     </span>
 
-                    {/* Pasek typów zintegrowany z układem */}
-                    <div className={`w-full h-1 flex gap-0.5 z-10 overflow-hidden rounded-full border border-cocoa/30 mt-auto shrink-0 ${isLocked ? "opacity-40" : ""}`}>
-                      {item.cells.map((cl) => {
-                        const cellBg = POKEMON_TYPES_PL[cl.primaryType]?.bgHex || "#94a3b8";
-                        return (
-                          <span 
-                            key={cl.id}
-                            className="flex-1 h-full first:rounded-l-full last:rounded-r-full"
-                            style={{ backgroundColor: cellBg }}
-                          />
-                        );
-                      })}
-                    </div>
+                    {/* Difficulty bar */}
+                    <div
+                      className="w-full h-1 mt-auto shrink-0 rounded-full border border-cocoa/30"
+                      style={{
+                        backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
+                        opacity: isLocked ? 0.4 : 1
+                      }}
+                    />
                   </>
                 )}
 
-                {/* Nakładka walki */}
+                {/* Hover combat overlay */}
                 {item.isAdjacent && (
                   <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-20">
                     <Swords className="h-4 w-4 text-pokemon-navy" />

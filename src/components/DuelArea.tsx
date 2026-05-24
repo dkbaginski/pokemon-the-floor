@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
-import { Pokemon, POKEMON_LIST, POKEMON_TYPES_PL, getPokemonImageUrl, isCorrectPokemonName, getTypeName } from "../pokemonData";
-import { Trainer, TRAINERS } from "../trainers";
-import { getTrainerShortName } from "./FloorGrid";
-import { Mic, MicOff, AlertCircle, ArrowRight, CornerDownLeft, Volume2, ShieldAlert } from "lucide-react";
+import { Pokemon, POKEMON_LIST, getPokemonImageUrl, isCorrectPokemonName } from "../pokemonData";
+import { Bot } from "../bots";
+import { Mic, AlertCircle, CornerDownLeft, ShieldAlert } from "lucide-react";
 
 interface DuelAreaProps {
-  opponent: Trainer;
-  categoryType: string;
+  opponent: Bot;
+  pokemonPool: number[];                       // Pokédex IDs assignable in this duel
+  recentlyShownIds: number[];                  // Persistent rolling-window log from App
+  onPokemonShown: (id: number) => void;        // Callback to extend the persistent log
   onDuelFinish: (winnerId: string, stats: { userCorrect: number; userPassed: number; timerRemaining: number }) => void;
   onUnlockPokemon: (id: number) => void;
   onSeePokemon?: (id: number) => void;
@@ -14,7 +15,17 @@ interface DuelAreaProps {
   t: any;
 }
 
-export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnlockPokemon, onSeePokemon, language, t }: DuelAreaProps) {
+export default function DuelArea({
+  opponent,
+  pokemonPool,
+  recentlyShownIds,
+  onPokemonShown,
+  onDuelFinish,
+  onUnlockPokemon,
+  onSeePokemon,
+  language,
+  t
+}: DuelAreaProps) {
   // --- Timers State ---
   const [playerTime, setPlayerTime] = useState(45.0);
   const [opponentTime, setOpponentTime] = useState(45.0);
@@ -29,54 +40,50 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
   // --- Voice Search / Speech Recognition ---
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
-  const [heardText, setHeardText] = useState("");
+  const [, setHeardText] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
 
   // --- Opponent AI Thinking state ---
   const [opponentGuessText, setOpponentGuessText] = useState("");
-  const opponentThinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const opponentThinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- References for visual timers ---
   const intervalRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  // Cache to track and prevent duplicate pokemon shown in this duel session
-  const shownPokemonIdsRef = useRef<number[]>([]);
+
+  // Cache to track and prevent duplicate pokemon shown in this duel session.
+  // Seeded from App-level rolling window so back-to-back duels don't repeat.
+  const shownPokemonIdsRef = useRef<number[]>([...recentlyShownIds]);
   const instanceEndedRef = useRef<boolean>(false);
 
-  // Filter Kanto Pokémons matching category type
-  const filterTypePool = () => {
-    let pool = POKEMON_LIST.filter((p) => p.types.includes(categoryType));
-    // Fallback if pool is depleted or has too few items to have plenty of items
-    if (pool.length < 8) {
-      pool = POKEMON_LIST;
-    }
-    return pool;
+  // Resolve the bot's pool into actual Pokémon records.
+  const getPoolPokemon = (): Pokemon[] => {
+    const pokeById = new Map(POKEMON_LIST.map((p) => [p.id, p]));
+    const resolved = pokemonPool.map((id) => pokeById.get(id)).filter(Boolean) as Pokemon[];
+    return resolved.length > 0 ? resolved : POKEMON_LIST;
   };
 
-  const getNextPokemonFromPool = () => {
-    const pool = filterTypePool();
-    
-    // Choose only from pokemon that haven't been shown in this duel yet!
+  const getNextPokemonFromPool = (): Pokemon => {
+    const pool = getPoolPokemon();
+
+    // Prefer pool entries that haven't been shown recently (this duel + App log).
     let unused = pool.filter((p) => !shownPokemonIdsRef.current.includes(p.id));
-    
-    // If all possible pokemon in this pool were shown, reset the history
-    // (but keep the very last shown ID to prevent immediate repetition on boundary)
+
+    // If everything from this pool has been shown, soft-reset but keep the most recent id
+    // so we don't show the same Pokémon twice in a row at the boundary.
     if (unused.length === 0) {
       const lastShownId = shownPokemonIdsRef.current[shownPokemonIdsRef.current.length - 1];
       shownPokemonIdsRef.current = lastShownId !== undefined ? [lastShownId] : [];
       unused = pool.filter((p) => !shownPokemonIdsRef.current.includes(p.id));
     }
-    
-    // Safest fallback if still empty
-    if (unused.length === 0) {
-      unused = pool;
-    }
 
-    const randomIndex = Math.floor(Math.random() * unused.length);
-    const chosen = unused[randomIndex];
+    // Safety net.
+    if (unused.length === 0) unused = pool;
+
+    const chosen = unused[Math.floor(Math.random() * unused.length)];
     if (chosen) {
       shownPokemonIdsRef.current.push(chosen.id);
+      onPokemonShown(chosen.id);
     }
     return chosen;
   };
@@ -90,6 +97,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     return () => {
       if (opponentThinkingTimerRef.current) clearTimeout(opponentThinkingTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track seen pokemons automatically whenever currentPokemon changes
@@ -126,6 +134,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlayer, duelEnded]);
 
   // --- Handle Speech Recognition (Web Speech API) ---
@@ -170,18 +179,14 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
 
   const handleVoiceTranscript = (transcript: string) => {
     if (!currentPokemon || duelEnded) return;
-    
-    // Check if the transcript matches
+
     if (isCorrectPokemonName(transcript, currentPokemon.name)) {
-      // Correct!
       onUnlockPokemon(currentPokemon.id);
       setPokedexStats((prev) => ({ ...prev, correct: prev.correct + 1 }));
       setTypedAnswer("");
       setHeardText("");
-      // Transition turn
       switchToOpponent();
     } else {
-      // Insert what was heard into input field so they can correct it
       setTypedAnswer(transcript);
       setSpeechError(`${t.speechHeard}: "${transcript}". ${t.speechCorrect}`);
     }
@@ -200,7 +205,6 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
       setSpeechError(null);
       switchToOpponent();
     } else {
-      // Wrong answer - no time penalty, just visual flash or feedback
       setSpeechError(t.speechWrong);
     }
   };
@@ -221,9 +225,8 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     setPokedexStats((prev) => ({ ...prev, passed: prev.passed + 1 }));
     setSpeechError(null);
     setTypedAnswer("");
-    // Give player a fresh Pokémon, their turn continues!
     setCurrentPokemon(getNextPokemonFromPool());
-    
+
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -234,8 +237,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     if (duelEnded) return;
     setActivePlayer("opponent");
     setTypedAnswer("");
-    
-    // Start drawing Pokémon for Opponent and queue their AI decision
+
     const nextPoke = getNextPokemonFromPool();
     setCurrentPokemon(nextPoke);
     triggerOpponentThinking(nextPoke);
@@ -246,7 +248,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     setActivePlayer("player");
     setOpponentGuessText("");
     setCurrentPokemon(getNextPokemonFromPool());
-    
+
     setTimeout(() => {
       if (inputRef.current) inputRef.current.focus();
     }, 50);
@@ -255,19 +257,18 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
   // --- Opponent AI Decision Core ---
   const triggerOpponentThinking = (pokemonToGuess: Pokemon) => {
     if (opponentThinkingTimerRef.current) clearTimeout(opponentThinkingTimerRef.current);
-    
-    // Determine thinking duration based on trainer difficulty
+
     let selectDelayMs = 4000;
-    let passChance = 0.15; // 15% chance to pass
+    let passChance = 0.15;
 
     if (opponent.difficulty === "easy") {
-      selectDelayMs = 4000 + Math.random() * 2500; // 4 - 6.5s
+      selectDelayMs = 4000 + Math.random() * 2500;
       passChance = 0.18;
     } else if (opponent.difficulty === "medium") {
-      selectDelayMs = 2500 + Math.random() * 2000; // 2.5 - 4.5s
+      selectDelayMs = 2500 + Math.random() * 2000;
       passChance = 0.10;
     } else {
-      selectDelayMs = 1500 + Math.random() * 1200; // 1.5 - 2.7s
+      selectDelayMs = 1500 + Math.random() * 1200;
       passChance = 0.05;
     }
 
@@ -276,7 +277,6 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
 
       const randomRoll = Math.random();
       if (randomRoll < passChance) {
-        // Opponent PASSED!
         setOpponentTime((prev) => {
           const afterPenalty = prev - 5.0;
           if (afterPenalty <= 0) {
@@ -285,21 +285,17 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
           }
           return Math.round(afterPenalty * 10) / 10;
         });
-        
-        // Show pass notification
+
         setOpponentGuessText(t.passNotification);
-        
-        // Take another pokemon, opponent continues thinking
+
         const nextPoke = getNextPokemonFromPool();
         setCurrentPokemon(nextPoke);
         triggerOpponentThinking(nextPoke);
       } else {
-        // Opponent guessed correctly!
         setOpponentGuessText(pokemonToGuess.name);
-        
+
         setTimeout(() => {
           if (duelEnded) return;
-          // Switch back to player
           switchToPlayer();
         }, 1200);
       }
@@ -314,7 +310,6 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     if (opponentThinkingTimerRef.current) clearTimeout(opponentThinkingTimerRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    // Call callback back to game core
     setTimeout(() => {
       onDuelFinish(winner, {
         userCorrect: pokedexStats.correct,
@@ -324,29 +319,28 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
     }, 1500);
   };
 
-  const opponentDetail = POKEMON_TYPES_PL[opponent.primaryType];
-  const activeDetail = POKEMON_TYPES_PL[categoryType];
+  const opponentLabel = `${t.botLabel} ${opponent.number}`;
 
   return (
     <div className="w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between bg-[#FFF4DF] border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa">
-      
+
       {/* Background soft cafe glow */}
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-cafe-beige/35 to-transparent pointer-events-none" />
 
-      {/* Arena Title / Category badge - Styled like design header */}
+      {/* Arena Title — bot label + pool size */}
       <div className="relative pt-4 px-5 pb-2 flex justify-between items-center z-10 select-none">
         <div className="flex flex-col text-left">
           <span className="text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">{t.categoryLabel}</span>
           <h2 className="text-sm font-display font-black tracking-tight text-[#5A3A2A] uppercase">
-            {t.challengeType} {getTypeName(categoryType, language)}
+            {opponentLabel} · {pokemonPool.length} {t.botPoolSizeLabel}
           </h2>
         </div>
         <div className="bg-white-frost px-3 py-1 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
-          <span className="text-[10px] font-black text-cocoa">vs {getTrainerShortName(opponent, language)}</span>
+          <span className="text-[10px] font-black text-cocoa">vs {opponentLabel}</span>
         </div>
       </div>
 
-      {/* --- TIMERS PANEL (VIBRANT SPLIT HORIZONTAL STYLE) --- */}
+      {/* --- TIMERS PANEL --- */}
       <div className="flex border-y-2 border-[#5A3A2A] h-16 bg-[#F2D5A7] overflow-hidden relative z-10 select-none">
         {/* PLAYER TIME BLOCK */}
         <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-300 ${
@@ -357,12 +351,12 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
         style={{ opacity: 1.0 }}>
           <span className={`text-[9.5px] font-black uppercase tracking-wider ${
             activePlayer === "player" ? "text-[#24456B]" : "text-[#8C6D58]"
-          }`}>{language === "pl" ? "TWÓJ CZAS" : "YOUR TIME"}</span>
+          }`}>{t.yourTimeLabel}</span>
           <div className={`text-2xl font-mono font-black tracking-tighter ${
-            playerTime < 10 
-              ? "text-[#E95050] animate-pulse" 
-              : activePlayer === "player" 
-              ? "text-[#24456B]" 
+            playerTime < 10
+              ? "text-[#E95050] animate-pulse"
+              : activePlayer === "player"
+              ? "text-[#24456B]"
               : "text-[#5A3A2A]"
           }`}>
             {playerTime.toFixed(1)}s
@@ -381,12 +375,12 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
         style={{ opacity: 1.0 }}>
           <span className={`text-[9.5px] font-black uppercase tracking-wider ${
             activePlayer === "opponent" ? "text-[#24456B]" : "text-[#8C6D58]"
-          }`}>{language === "pl" ? "PRZECIWNIK" : "OPPONENT"} ({opponent.avatar})</span>
+          }`}>{t.opponentTimeLabel} ({opponent.avatar})</span>
           <div className={`text-2xl font-mono font-black tracking-tighter ${
             opponentTime < 10 && activePlayer === "opponent"
               ? "text-[#E95050] animate-pulse"
-              : activePlayer === "opponent" 
-              ? "text-[#24456B]" 
+              : activePlayer === "opponent"
+              ? "text-[#24456B]"
               : "text-[#5A3A2A]"
           }`}>
             {opponentTime.toFixed(1)}s
@@ -397,17 +391,16 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
         </div>
       </div>
 
-      {/* --- ACTIVE POKÉMON IMAGE PANEL (VIBRANT ARTWORK CANVAS) --- */}
+      {/* --- ACTIVE POKÉMON IMAGE PANEL --- */}
       <div className="flex-1 flex flex-col items-center justify-center py-4 px-3 bg-white border-2 border-[#5A3A2A] rounded-[20px] mx-4 my-3 relative min-h-0 select-none shadow-[0_3px_0_#5A3A2A]">
-        {/* Circular canvas container - Dynamic fluid scaling using core tokens */}
-        <div 
+        <div
           className="rounded-full bg-cream-base/15 flex items-center justify-center relative border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] shrink-1 object-contain fluid-badge-container"
-          style={{ 
-            aspectRatio: "1/1" 
+          style={{
+            aspectRatio: "1/1"
           }}
         >
           <div className="absolute inset-0 rounded-full bg-cafe-beige/10" />
-          
+
           {currentPokemon ? (
             <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
               <img
@@ -416,17 +409,17 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
                 referrerPolicy="no-referrer"
                 className={`h-4/5 w-4/5 object-contain select-none transition-all duration-500 ${
                   activePlayer === "opponent" && !opponentGuessText
-                    ? "brightness-0 opacity-40 grayscale" // physical sticker silhouette
+                    ? "brightness-0 opacity-40 grayscale"
                     : ""
                 }`}
-                style={{ 
+                style={{
                   filter: activePlayer === "opponent" && !opponentGuessText ? "none" : "drop-shadow(0 4px 6px rgba(90,58,42,0.15))",
                 }}
               />
               {activePlayer === "opponent" && opponentGuessText && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-lemon-yellow text-pokemon-navy border-2 border-pokemon-navy px-4 py-1.5 rounded-full font-display font-black text-xs uppercase tracking-wider z-20 animate-bounce shadow-[0_4px_0_#24456B]">
-                    {opponentGuessText === t.passNotification || opponentGuessText === "PASUJĘ!" ? t.passNotification : `${opponentGuessText}!`}
+                    {opponentGuessText === t.passNotification ? t.passNotification : `${opponentGuessText}!`}
                   </div>
                 </div>
               )}
@@ -436,7 +429,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
           )}
         </div>
 
-        {/* Status indicator pill from mockup */}
+        {/* Status indicator pill */}
         <div className="mt-2.5 text-center z-10">
           <div className="inline-flex items-center gap-2 bg-white-frost px-3 py-1 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
             <div className={`w-2.5 h-2.5 rounded-full ${activePlayer === "player" ? "bg-soft-mint animate-pulse border border-[#5A3A2A]" : "bg-lemon-yellow animate-pulse border border-[#5A3A2A]"}`} />
@@ -475,7 +468,6 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
       <div className="p-3 sm:p-4 bg-cafe-beige border-t-2 border-[#5A3A2A] z-10">
         {activePlayer === "player" ? (
           <form onSubmit={handlePlayerSubmit} className="space-y-3">
-            {/* Input Row - compressed padding */}
             <div>
               <input
                 ref={inputRef}
@@ -501,7 +493,6 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
               />
             </div>
 
-            {/* Ergonomic symmetrical thumb area */}
             <div className="grid grid-cols-3 gap-2 items-center">
               {/* PAS BUTTON */}
               <button
@@ -513,7 +504,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
                 <span className="text-[9px] text-coral font-black mt-0.5">{t.passPenalty}</span>
               </button>
 
-              {/* GIANT FLOATING THUMB MICROPHONE ACTION BUTTON */}
+              {/* MICROPHONE */}
               <button
                 type="button"
                 onClick={startSpeechRecognition}
@@ -555,7 +546,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
             </div>
           </form>
         ) : (
-          /* Opponent Ticking UI block from design */
+          /* Opponent Ticking UI block */
           <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#FFF4DF] py-4 text-center text-cocoa text-xs flex flex-col items-center justify-center gap-1.5 min-h-[90px] shadow-[0_2px_0_#5A3A2A]">
             <div className="h-5 w-5 rounded-full border-2 border-cafe-beige border-t-[#24456B] animate-spin" />
             <span className="font-extrabold text-[#5A3A2A] text-[11px]">{t.opponentTurnReport}</span>
@@ -563,7 +554,7 @@ export default function DuelArea({ opponent, categoryType, onDuelFinish, onUnloc
           </div>
         )}
       </div>
-      
+
     </div>
   );
 }
