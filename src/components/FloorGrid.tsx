@@ -17,6 +17,14 @@ interface FloorGridProps {
   t: any;
 }
 
+interface ComponentInfo {
+  ownerId: string;
+  anchorCellId: number;
+  cols: number;
+  rows: number;
+  size: number;
+}
+
 interface GridItem {
   key: string;
   cell: GridCell;
@@ -25,12 +33,14 @@ interface GridItem {
   isPlayer: boolean;
   isAdjacent: boolean;
   isJustConquered: boolean;
-  // Polygon merge flags — true when neighbour is also owned by the player
-  // (recently-conquered cells count as player; they sit inside playerFieldsSet).
+  // Polygon merge flags — true when neighbour is owned by the SAME entity.
   mergeTop: boolean;
   mergeRight: boolean;
   mergeBottom: boolean;
   mergeLeft: boolean;
+  // Connected-component metadata
+  component: ComponentInfo;
+  isAnchor: boolean;
 }
 
 const DIFFICULTY_HEX: Record<"easy" | "medium" | "hard", string> = {
@@ -39,16 +49,72 @@ const DIFFICULTY_HEX: Record<"easy" | "medium" | "hard", string> = {
   hard: "#FF7A62"    // Coral
 };
 
-export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language, t }: FloorGridProps) {
+// BFS connected components on the 5×5 grid, grouping cells by currentOwnerId.
+// Each component returns: anchor cell (top-left = min row, min col), bounding-box
+// dimensions, and total size. Anchor renders the single owner label/emoji that
+// spans the polygon; siblings render only the background + (for bots) difficulty
+// stripe.
+function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
+  const byPos = new Map<string, GridCell>();
+  for (const c of grid) byPos.set(`${c.row}-${c.col}`, c);
 
-  // Player owns this position — used for both adjacency and polygon merging.
-  // Just-conquered cells stay inside the set so neighbours light up immediately and
-  // the lava-takeover animation merges seamlessly with the rest of the player polygon.
+  const visited = new Set<number>();
+  const result = new Map<number, ComponentInfo>();
+
+  for (const start of grid) {
+    if (visited.has(start.id)) continue;
+    const queue: GridCell[] = [start];
+    visited.add(start.id);
+    const cells: GridCell[] = [];
+    while (queue.length > 0) {
+      const c = queue.shift()!;
+      cells.push(c);
+      const neighbours = [
+        byPos.get(`${c.row - 1}-${c.col}`),
+        byPos.get(`${c.row + 1}-${c.col}`),
+        byPos.get(`${c.row}-${c.col - 1}`),
+        byPos.get(`${c.row}-${c.col + 1}`),
+      ];
+      for (const n of neighbours) {
+        if (!n || visited.has(n.id)) continue;
+        if (n.currentOwnerId === start.currentOwnerId) {
+          visited.add(n.id);
+          queue.push(n);
+        }
+      }
+    }
+    const minRow = Math.min(...cells.map((c) => c.row));
+    const maxRow = Math.max(...cells.map((c) => c.row));
+    const minCol = Math.min(...cells.map((c) => c.col));
+    const maxCol = Math.max(...cells.map((c) => c.col));
+    const anchor = cells.find((c) => c.row === minRow && c.col === minCol) || cells[0];
+    const info: ComponentInfo = {
+      ownerId: start.currentOwnerId,
+      anchorCellId: anchor.id,
+      cols: maxCol - minCol + 1,
+      rows: maxRow - minRow + 1,
+      size: cells.length
+    };
+    for (const c of cells) result.set(c.id, info);
+  }
+  return result;
+}
+
+export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, t }: FloorGridProps) {
+
+  // Player owns this position — used for adjacency tests AND treated as "same
+  // owner" for polygon merge. Just-conquered cells stay inside the set so their
+  // neighbours light up immediately and the lava-takeover meshes seamlessly.
   const playerFieldsSet = new Set(
     grid
       .filter(c => c.currentOwnerId === "player")
       .map(c => `${c.row}-${c.col}`)
   );
+
+  const ownerAt = (row: number, col: number): string | null => {
+    const c = grid.find((g) => g.row === row && g.col === col);
+    return c ? c.currentOwnerId : null;
+  };
 
   const isPlayerAt = (row: number, col: number) => playerFieldsSet.has(`${row}-${col}`);
 
@@ -64,10 +130,13 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
   };
 
   const justConqueredSet = new Set(recentlyConqueredCellIds);
+  const components = buildComponents(grid);
 
   const gridItems: GridItem[] = grid.map((cell) => {
     const isPlayer = cell.currentOwnerId === "player";
     const isJustConquered = justConqueredSet.has(cell.id);
+    const component = components.get(cell.id)!;
+    const sameOwner = (r: number, c: number) => ownerAt(r, c) === cell.currentOwnerId;
     return {
       key: `cell-${cell.id}`,
       cell,
@@ -76,10 +145,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
       isPlayer,
       isJustConquered,
       isAdjacent: isCellAdjacentToPlayer(cell),
-      mergeTop:    isPlayer && isPlayerAt(cell.row - 1, cell.col),
-      mergeRight:  isPlayer && isPlayerAt(cell.row,     cell.col + 1),
-      mergeBottom: isPlayer && isPlayerAt(cell.row + 1, cell.col),
-      mergeLeft:   isPlayer && isPlayerAt(cell.row,     cell.col - 1)
+      mergeTop:    sameOwner(cell.row - 1, cell.col),
+      mergeRight:  sameOwner(cell.row,     cell.col + 1),
+      mergeBottom: sameOwner(cell.row + 1, cell.col),
+      mergeLeft:   sameOwner(cell.row,     cell.col - 1),
+      component,
+      isAnchor: component.anchorCellId === cell.id
     };
   });
 
@@ -126,8 +197,9 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
           {gridItems.map((item) => {
             const cell = item.cell;
             const ownerBot = BOTS[cell.currentOwnerId];
-            const isPlayerTile = item.isPlayer; // recently-conquered cells already in here
+            const isPlayerTile = item.isPlayer;
             const isLocked = !isPlayerTile && !item.isAdjacent;
+            const isMultiCellPolygon = item.component.size > 1;
 
             // Background / interaction class
             const bgClass = item.isJustConquered
@@ -138,35 +210,42 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
               ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
               : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
 
-            // --- Polygon merging classes (player tiles only) ----------------
-            // Border, corner-radius, negative-margin (to swallow the grid gap),
-            // and drop-shadow toggles depending on whether each side touches
-            // another player-owned tile.
-            const playerBorderClass = isPlayerTile
-              ? `border-[#5A3A2A] ${item.mergeTop ? "border-t-0" : "border-t-2"} ${item.mergeRight ? "border-r-0" : "border-r-2"} ${item.mergeBottom ? "border-b-0" : "border-b-2"} ${item.mergeLeft ? "border-l-0" : "border-l-2"}`
-              : "border-2 border-[#5A3A2A]";
+            // --- Polygon merging (player + same-bot polygons) ---------------
+            const borderClass = `border-[#5A3A2A] ${item.mergeTop ? "border-t-0" : "border-t-2"} ${item.mergeRight ? "border-r-0" : "border-r-2"} ${item.mergeBottom ? "border-b-0" : "border-b-2"} ${item.mergeLeft ? "border-l-0" : "border-l-2"}`;
 
-            const playerCornerClass = isPlayerTile
-              ? `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`
-              : "rounded-xl sm:rounded-2xl";
+            const cornerClass = `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`;
 
             // gap-1.5 = 6px / sm:gap-2.5 = 10px → half on each side eats the gap when merged.
-            const playerMarginClass = isPlayerTile
-              ? `${item.mergeTop ? "-mt-[3px] sm:-mt-[5px]" : ""} ${item.mergeRight ? "-mr-[3px] sm:-mr-[5px]" : ""} ${item.mergeBottom ? "-mb-[3px] sm:-mb-[5px]" : ""} ${item.mergeLeft ? "-ml-[3px] sm:-ml-[5px]" : ""}`
-              : "";
+            const marginClass = `${item.mergeTop ? "-mt-[3px] sm:-mt-[5px]" : ""} ${item.mergeRight ? "-mr-[3px] sm:-mr-[5px]" : ""} ${item.mergeBottom ? "-mb-[3px] sm:-mb-[5px]" : ""} ${item.mergeLeft ? "-ml-[3px] sm:-ml-[5px]" : ""}`;
 
-            const playerShadowClass = isPlayerTile
-              ? (item.mergeBottom ? "" : "shadow-[0_3px_0_#5A3A2A]")
-              : "shadow-[0_3px_0_#5A3A2A]";
+            const shadowClass = item.mergeBottom ? "" : "shadow-[0_3px_0_#5A3A2A]";
 
-            // Player tile sits above neighbouring rivals so the negative margins overlap cleanly.
-            const playerZClass = isPlayerTile ? "z-10" : "";
+            // Anchor of a multi-cell polygon needs to sit above its siblings so
+            // the absolute-positioned label can paint across the whole bounding box.
+            const zClass = (item.isAnchor && isMultiCellPolygon)
+              ? "z-20"
+              : isPlayerTile
+                ? "z-10"
+                : "";
 
             const tooltipText = isPlayerTile
               ? `${t.botTooltipYourTerritory} (${playerFieldsSet.size})`
               : ownerBot
                 ? `${t.botTooltipRegion}: ${t.botLabel} ${ownerBot.number} · ${t[ownerBot.difficulty]}`
                 : "";
+
+            // --- Anchor label container (renders once per polygon) ----------
+            // Spans cols × rows of the polygon's bounding box. Sits inside the
+            // anchor button via position: absolute and overflows naturally
+            // because no parent clips it.
+            const anchorOverlayStyle = item.isAnchor
+              ? {
+                  left: 0,
+                  top: 0,
+                  width: `${item.component.cols * 100}%`,
+                  height: `${item.component.rows * 100}%`,
+                }
+              : undefined;
 
             return (
               <button
@@ -175,57 +254,64 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   if (item.isAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
                 disabled={!item.isAdjacent}
-                className={`relative flex flex-col items-center justify-between p-1 pt-1.5 pb-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${playerBorderClass} ${playerCornerClass} ${playerMarginClass} ${playerShadowClass} ${playerZClass} ${bgClass}`}
+                className={`relative flex flex-col items-center justify-end p-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${borderClass} ${cornerClass} ${marginClass} ${shadowClass} ${zClass} ${bgClass}`}
                 style={{
                   gridRow: `${item.gridRowStart} / span 1`,
                   gridColumn: `${item.gridColStart} / span 1`,
                 }}
                 title={tooltipText}
               >
-                {/* Player tile */}
-                {isPlayerTile && (
-                  <div className="flex flex-col items-center justify-center my-auto h-full w-full select-none gap-0.5 sm:gap-1">
-                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse">⚡</span>
+                {/* Anchor overlay — single label/emoji centered over polygon */}
+                {item.isAnchor && isPlayerTile && (
+                  <div
+                    className="absolute pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1"
+                    style={anchorOverlayStyle}
+                  >
+                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
                     <span className="font-display font-black text-[9px] sm:text-[10px] text-[#24456B] uppercase tracking-wider leading-none">
                       {t.playerTileLabel}
                     </span>
                   </div>
                 )}
 
-                {/* Bot tile */}
-                {!isPlayerTile && ownerBot && (
-                  <>
-                    {/* Bot avatar */}
-                    <span className={`text-base sm:text-xl z-10 select-none transition-all leading-none ${isLocked ? "grayscale opacity-40" : ""}`}>
+                {item.isAnchor && !isPlayerTile && ownerBot && (
+                  <div
+                    className="absolute pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1"
+                    style={anchorOverlayStyle}
+                  >
+                    <span
+                      className={`text-base sm:text-xl leading-none select-none transition-all ${isLocked ? "grayscale opacity-40" : ""}`}
+                    >
                       {ownerBot.avatar}
                     </span>
-
-                    {/* Bot label */}
                     <span
-                      className="z-10 select-none block text-center antialiased whitespace-nowrap leading-none px-0.5 w-full uppercase tracking-tight my-auto font-black"
+                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
                       style={{
                         fontSize: "clamp(8.5px, 1.1vh, 10.5px)",
                         color: item.isAdjacent ? "#24456B" : "#5A3A2A",
-                        WebkitFontSmoothing: "antialiased"
+                        WebkitFontSmoothing: "antialiased",
                       }}
                     >
                       {t.botLabel} {ownerBot.number}
                     </span>
+                  </div>
+                )}
 
-                    {/* Difficulty bar */}
-                    <div
-                      className="w-full h-1 mt-auto shrink-0 rounded-full border border-cocoa/30"
-                      style={{
-                        backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
-                        opacity: isLocked ? 0.4 : 1
-                      }}
-                    />
-                  </>
+                {/* Difficulty bar (bots only; rendered per cell so the stripe
+                    runs the full width of merged polygons). */}
+                {!isPlayerTile && ownerBot && (
+                  <div
+                    className="w-full h-1 mt-auto shrink-0 rounded-full border border-cocoa/30"
+                    style={{
+                      backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
+                      opacity: isLocked ? 0.4 : 1
+                    }}
+                  />
                 )}
 
                 {/* Hover combat overlay */}
                 {item.isAdjacent && (
-                  <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-20">
+                  <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-30">
                     <Swords className="h-4 w-4 text-pokemon-navy" />
                   </div>
                 )}
