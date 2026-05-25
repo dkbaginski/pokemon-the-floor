@@ -20,8 +20,6 @@ interface FloorGridProps {
 interface ComponentInfo {
   ownerId: string;
   anchorCellId: number;
-  cols: number;
-  rows: number;
   size: number;
 }
 
@@ -83,16 +81,19 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
         }
       }
     }
-    const minRow = Math.min(...cells.map((c) => c.row));
-    const maxRow = Math.max(...cells.map((c) => c.row));
-    const minCol = Math.min(...cells.map((c) => c.col));
-    const maxCol = Math.max(...cells.map((c) => c.col));
-    const anchor = cells.find((c) => c.row === minRow && c.col === minCol) || cells[0];
+    // Pick the cell closest to the polygon's centroid as the label anchor.
+    // For non-rectangular shapes (e.g. L-shapes) this keeps the label visually
+    // inside the territory instead of floating off in a bounding-box corner.
+    const avgRow = cells.reduce((s, c) => s + c.row, 0) / cells.length;
+    const avgCol = cells.reduce((s, c) => s + c.col, 0) / cells.length;
+    const anchor = cells.reduce((best, c) => {
+      const dC = Math.abs(c.row - avgRow) + Math.abs(c.col - avgCol);
+      const dB = Math.abs(best.row - avgRow) + Math.abs(best.col - avgCol);
+      return dC < dB ? c : best;
+    }, cells[0]);
     const info: ComponentInfo = {
       ownerId: start.currentOwnerId,
       anchorCellId: anchor.id,
-      cols: maxCol - minCol + 1,
-      rows: maxRow - minRow + 1,
       size: cells.length
     };
     for (const c of cells) result.set(c.id, info);
@@ -199,7 +200,6 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             const ownerBot = BOTS[cell.currentOwnerId];
             const isPlayerTile = item.isPlayer;
             const isLocked = !isPlayerTile && !item.isAdjacent;
-            const isMultiCellPolygon = item.component.size > 1;
 
             // Background / interaction class
             const bgClass = item.isJustConquered
@@ -218,34 +218,18 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             // gap-1.5 = 6px / sm:gap-2.5 = 10px → half on each side eats the gap when merged.
             const marginClass = `${item.mergeTop ? "-mt-[3px] sm:-mt-[5px]" : ""} ${item.mergeRight ? "-mr-[3px] sm:-mr-[5px]" : ""} ${item.mergeBottom ? "-mb-[3px] sm:-mb-[5px]" : ""} ${item.mergeLeft ? "-ml-[3px] sm:-ml-[5px]" : ""}`;
 
-            const shadowClass = item.mergeBottom ? "" : "shadow-[0_3px_0_#5A3A2A]";
+            // Drop-shadow only on the board's bottom row — keeps the "sticker
+            // resting on the panel" look without painting bogus shadows
+            // inside L-shaped polygons.
+            const shadowClass = cell.row === 4 ? "shadow-[0_3px_0_#5A3A2A]" : "";
 
-            // Anchor of a multi-cell polygon needs to sit above its siblings so
-            // the absolute-positioned label can paint across the whole bounding box.
-            const zClass = (item.isAnchor && isMultiCellPolygon)
-              ? "z-20"
-              : isPlayerTile
-                ? "z-10"
-                : "";
+            const zClass = isPlayerTile ? "z-10" : "";
 
             const tooltipText = isPlayerTile
               ? `${t.botTooltipYourTerritory} (${playerFieldsSet.size})`
               : ownerBot
                 ? `${t.botTooltipRegion}: ${t.botLabel} ${ownerBot.number} · ${t[ownerBot.difficulty]}`
                 : "";
-
-            // --- Anchor label container (renders once per polygon) ----------
-            // Spans cols × rows of the polygon's bounding box. Sits inside the
-            // anchor button via position: absolute and overflows naturally
-            // because no parent clips it.
-            const anchorOverlayStyle = item.isAnchor
-              ? {
-                  left: 0,
-                  top: 0,
-                  width: `${item.component.cols * 100}%`,
-                  height: `${item.component.rows * 100}%`,
-                }
-              : undefined;
 
             return (
               <button
@@ -261,12 +245,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 }}
                 title={tooltipText}
               >
-                {/* Anchor overlay — single label/emoji centered over polygon */}
+                {/* Anchor overlay — label/emoji centered inside the anchor cell.
+                    The anchor itself is chosen as the centroid of the polygon
+                    (see buildComponents), so a 1×1 overlay is always inside
+                    the territory and never overflows into neighbour tiles. */}
                 {item.isAnchor && isPlayerTile && (
-                  <div
-                    className="absolute pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1"
-                    style={anchorOverlayStyle}
-                  >
+                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1">
                     <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
                     <span className="font-display font-black text-[9px] sm:text-[10px] text-[#24456B] uppercase tracking-wider leading-none">
                       {t.playerTileLabel}
@@ -275,10 +259,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 )}
 
                 {item.isAnchor && !isPlayerTile && ownerBot && (
-                  <div
-                    className="absolute pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1"
-                    style={anchorOverlayStyle}
-                  >
+                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1">
                     <span
                       className={`text-base sm:text-xl leading-none select-none transition-all ${isLocked ? "grayscale opacity-40" : ""}`}
                     >
@@ -297,9 +278,11 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
 
-                {/* Difficulty bar (bots only; rendered per cell so the stripe
-                    runs the full width of merged polygons). */}
-                {!isPlayerTile && ownerBot && (
+                {/* Difficulty bar — only on the bottom edge of a bot polygon.
+                    For vertical polygons this keeps the stripe out of the
+                    polygon's interior; for horizontal polygons every cell on
+                    the (single) bottom row paints it and they meld together. */}
+                {!isPlayerTile && ownerBot && !item.mergeBottom && (
                   <div
                     className="w-full h-1 mt-auto shrink-0 rounded-full border border-cocoa/30"
                     style={{
