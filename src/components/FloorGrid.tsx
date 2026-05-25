@@ -215,8 +215,11 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
 
             const cornerClass = `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`;
 
-            // gap-1.5 = 6px / sm:gap-2.5 = 10px → half on each side eats the gap when merged.
-            const marginClass = `${item.mergeTop ? "-mt-[3px] sm:-mt-[5px]" : ""} ${item.mergeRight ? "-mr-[3px] sm:-mr-[5px]" : ""} ${item.mergeBottom ? "-mb-[3px] sm:-mb-[5px]" : ""} ${item.mergeLeft ? "-ml-[3px] sm:-ml-[5px]" : ""}`;
+            // gap-1.5 = 6px / sm:gap-2.5 = 10px. We pull each merged side back
+            // by gap/2 + 1 so neighbouring cells overlap by ~2px. Pure "touch"
+            // (gap/2 exactly) leaves a sub-pixel sliver where the parent's
+            // cafe-beige bg leaks through; the 2px overlap kills that line.
+            const marginClass = `${item.mergeTop ? "-mt-[4px] sm:-mt-[6px]" : ""} ${item.mergeRight ? "-mr-[4px] sm:-mr-[6px]" : ""} ${item.mergeBottom ? "-mb-[4px] sm:-mb-[6px]" : ""} ${item.mergeLeft ? "-ml-[4px] sm:-ml-[6px]" : ""}`;
 
             // Drop-shadow only on the board's bottom row — keeps the "sticker
             // resting on the panel" look without painting bogus shadows
@@ -279,12 +282,13 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 )}
 
                 {/* Difficulty bar — only on the bottom edge of a bot polygon.
-                    For vertical polygons this keeps the stripe out of the
-                    polygon's interior; for horizontal polygons every cell on
-                    the (single) bottom row paints it and they meld together. */}
+                    Absolutely positioned (ignores the button's p-1 padding)
+                    and extended past the merged side(s) by the same overlap
+                    we apply to cell borders, so horizontal polygons get one
+                    continuous stripe instead of two stubs with a gap. */}
                 {!isPlayerTile && ownerBot && !item.mergeBottom && (
                   <div
-                    className="w-full h-1 mt-auto shrink-0 rounded-full border border-cocoa/30"
+                    className={`absolute bottom-1 h-1 border border-cocoa/30 ${item.mergeLeft ? "-left-[4px] sm:-left-[6px] rounded-l-none" : "left-1 rounded-l-full"} ${item.mergeRight ? "-right-[4px] sm:-right-[6px] rounded-r-none" : "right-1 rounded-r-full"}`}
                     style={{
                       backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
                       opacity: isLocked ? 0.4 : 1
