@@ -215,11 +215,14 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
 
             const cornerClass = `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`;
 
-            // gap-1.5 = 6px / sm:gap-2.5 = 10px. We pull each merged side back
-            // by gap/2 + 1 so neighbouring cells overlap by ~2px. Pure "touch"
-            // (gap/2 exactly) leaves a sub-pixel sliver where the parent's
-            // cafe-beige bg leaks through; the 2px overlap kills that line.
-            const marginClass = `${item.mergeTop ? "-mt-[4px] sm:-mt-[6px]" : ""} ${item.mergeRight ? "-mr-[4px] sm:-mr-[6px]" : ""} ${item.mergeBottom ? "-mb-[4px] sm:-mb-[6px]" : ""} ${item.mergeLeft ? "-ml-[4px] sm:-ml-[6px]" : ""}`;
+            // gap-1.5 = 6px / sm:gap-2.5 = 10px. Pull each merged side back
+            // by the FULL gap width so the cell's visual edge lands exactly on
+            // its grid track boundary. With half-gap pulls there was a sliver
+            // of cafe-beige bg leaking through at concave corners of L-shaped
+            // polygons (e.g. player's TY territory) — the diagonal cell only
+            // pulls on one axis and the perpendicular axis still has a gap.
+            // Full-gap pulls close that.
+            const marginClass = `${item.mergeTop ? "-mt-[6px] sm:-mt-[10px]" : ""} ${item.mergeRight ? "-mr-[6px] sm:-mr-[10px]" : ""} ${item.mergeBottom ? "-mb-[6px] sm:-mb-[10px]" : ""} ${item.mergeLeft ? "-ml-[6px] sm:-ml-[10px]" : ""}`;
 
             // Drop-shadow only on the board's bottom row — keeps the "sticker
             // resting on the panel" look without painting bogus shadows
@@ -283,12 +286,13 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
 
                 {/* Difficulty bar — only on the bottom edge of a bot polygon.
                     Absolutely positioned (ignores the button's p-1 padding)
-                    and extended past the merged side(s) by the same overlap
-                    we apply to cell borders, so horizontal polygons get one
-                    continuous stripe instead of two stubs with a gap. */}
+                    and extended past the merged side(s) by the full gap so it
+                    overlaps the neighbour's bar in the gap area. The border
+                    on the merged side is removed so two bars don't paint a
+                    cocoa "stitch" line where they meet. */}
                 {!isPlayerTile && ownerBot && !item.mergeBottom && (
                   <div
-                    className={`absolute bottom-1 h-1 border border-cocoa/30 ${item.mergeLeft ? "-left-[4px] sm:-left-[6px] rounded-l-none" : "left-1 rounded-l-full"} ${item.mergeRight ? "-right-[4px] sm:-right-[6px] rounded-r-none" : "right-1 rounded-r-full"}`}
+                    className={`absolute bottom-1 h-1 border-y border-cocoa/30 ${item.mergeLeft ? "-left-[6px] sm:-left-[10px] rounded-l-none border-l-0" : "left-1 rounded-l-full border-l border-cocoa/30"} ${item.mergeRight ? "-right-[6px] sm:-right-[10px] rounded-r-none border-r-0" : "right-1 rounded-r-full border-r border-cocoa/30"}`}
                     style={{
                       backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
                       opacity: isLocked ? 0.4 : 1
