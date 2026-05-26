@@ -87,15 +87,15 @@
     z-index: 50;
   }
   70% {
-    transform: scale(1.08); /* Decay phase */
-    background-color: #FFF4DF;
+    transform: scale(1.08); /* Decay phase — easing into player-tile yellow */
+    background-color: #FFE26A;
     box-shadow: 0 4px 0 #5A3A2A;
     z-index: 50;
   }
   100% {
     transform: scale(1); /* Smooth final landing into player cell style */
-    background-color: #FFF4DF;
-    box-shadow: 0 4px 0 #5A3A2A;
+    background-color: #FFD84D;
+    box-shadow: 0 3px 0 #5A3A2A;
     border-color: #5A3A2A;
     z-index: 10;
   }
@@ -163,8 +163,8 @@
 .btn-core-yellow {
   background-color: #FFD84D;
   color: #24456B;
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-weight: 800;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
