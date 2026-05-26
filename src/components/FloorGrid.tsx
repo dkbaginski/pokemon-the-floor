@@ -215,21 +215,41 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
 
             const cornerClass = `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`;
 
-            // gap-1.5 = 6px / sm:gap-2.5 = 10px. Pull each merged side back
-            // by the FULL gap width so the cell's visual edge lands exactly on
-            // its grid track boundary. With half-gap pulls there was a sliver
-            // of cafe-beige bg leaking through at concave corners of L-shaped
-            // polygons (e.g. player's TY territory) — the diagonal cell only
-            // pulls on one axis and the perpendicular axis still has a gap.
-            // Full-gap pulls close that.
-            const marginClass = `${item.mergeTop ? "-mt-[6px] sm:-mt-[10px]" : ""} ${item.mergeRight ? "-mr-[6px] sm:-mr-[10px]" : ""} ${item.mergeBottom ? "-mb-[6px] sm:-mb-[10px]" : ""} ${item.mergeLeft ? "-ml-[6px] sm:-ml-[10px]" : ""}`;
-
-            // Drop-shadow only on the board's bottom row — keeps the "sticker
-            // resting on the panel" look without painting bogus shadows
-            // inside L-shaped polygons.
+            // No negative margins on cells — keep them at their grid track
+            // positions. Polygon merge is achieved via an absolute-positioned
+            // bg overlay (below) that extends into the gap on merge sides,
+            // plus per-corner fillers at L-bend concave intersections.
+            // This avoids the previous "two perpendicular margins extend the
+            // box in two directions and paint into the diagonal corner outside
+            // the polygon" issue.
             const shadowClass = cell.row === 4 ? "shadow-[0_3px_0_#5A3A2A]" : "";
-
             const zClass = isPlayerTile ? "z-10" : "";
+
+            // Fill colour used by overlay + corner fillers. Matches the cell's
+            // own bg so the merged polygon paints as one continuous colour.
+            const fillColor = item.isJustConquered || isPlayerTile
+              ? "#FFD84D"
+              : item.isAdjacent
+                ? "#FFFFFF"
+                : "#EADFC9";
+
+            // Helper: is the diagonal neighbour part of the same polygon?
+            // Used to decide whether a corner filler needs L-bend borders
+            // (when the diagonal is a DIFFERENT owner) or is fully interior.
+            const diagSameOwner = (dr: number, dc: number) => {
+              const d = grid.find(g => g.row === cell.row + dr && g.col === cell.col + dc);
+              return d?.currentOwnerId === cell.currentOwnerId;
+            };
+            const cornerTR = item.mergeTop && item.mergeRight;
+            const cornerTL = item.mergeTop && item.mergeLeft;
+            const cornerBR = item.mergeBottom && item.mergeRight;
+            const cornerBL = item.mergeBottom && item.mergeLeft;
+            const trInterior = cornerTR && diagSameOwner(-1, 1);
+            const tlInterior = cornerTL && diagSameOwner(-1, -1);
+            const brInterior = cornerBR && diagSameOwner(1, 1);
+            const blInterior = cornerBL && diagSameOwner(1, -1);
+
+            const hasAnyMerge = item.mergeTop || item.mergeRight || item.mergeBottom || item.mergeLeft;
 
             const tooltipText = isPlayerTile
               ? `${t.botTooltipYourTerritory} (${playerFieldsSet.size})`
@@ -244,13 +264,62 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   if (item.isAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
                 disabled={!item.isAdjacent}
-                className={`relative flex flex-col items-center justify-end p-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${borderClass} ${cornerClass} ${marginClass} ${shadowClass} ${zClass} ${bgClass}`}
+                className={`relative flex flex-col items-center justify-end p-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${borderClass} ${cornerClass} ${shadowClass} ${zClass} ${bgClass}`}
                 style={{
                   gridRow: `${item.gridRowStart} / span 1`,
                   gridColumn: `${item.gridColStart} / span 1`,
                 }}
                 title={tooltipText}
               >
+                {/* Polygon-merge overlay — extends the cell's fill colour into
+                    the adjacent gap on every merged side. Sits in the gap
+                    area only (no overlap with neighbouring polygons because
+                    only merge sides extend). Behind all other content. */}
+                {hasAnyMerge && (
+                  <div
+                    className={`absolute pointer-events-none ${
+                      item.mergeTop ? "-top-[6px] sm:-top-[10px]" : "top-0"
+                    } ${
+                      item.mergeRight ? "-right-[6px] sm:-right-[10px]" : "right-0"
+                    } ${
+                      item.mergeBottom ? "-bottom-[6px] sm:-bottom-[10px]" : "bottom-0"
+                    } ${
+                      item.mergeLeft ? "-left-[6px] sm:-left-[10px]" : "left-0"
+                    }`}
+                    style={{ backgroundColor: fillColor }}
+                  />
+                )}
+
+                {/* Corner fillers — bridge the gap intersection at each corner
+                    where BOTH adjacent merges are true. Paint the fill colour;
+                    when the diagonal neighbour is a DIFFERENT polygon (L-bend),
+                    also draw the two perpendicular border segments that form
+                    the L outline at the concave corner. */}
+                {cornerTR && (
+                  <div
+                    className={`absolute -top-[6px] sm:-top-[10px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${trInterior ? "" : "border-t-2 border-r-2 border-[#5A3A2A]"}`}
+                    style={{ backgroundColor: fillColor }}
+                  />
+                )}
+                {cornerTL && (
+                  <div
+                    className={`absolute -top-[6px] sm:-top-[10px] -left-[6px] sm:-left-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${tlInterior ? "" : "border-t-2 border-l-2 border-[#5A3A2A]"}`}
+                    style={{ backgroundColor: fillColor }}
+                  />
+                )}
+                {cornerBR && (
+                  <div
+                    className={`absolute -bottom-[6px] sm:-bottom-[10px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${brInterior ? "" : "border-b-2 border-r-2 border-[#5A3A2A]"}`}
+                    style={{ backgroundColor: fillColor }}
+                  />
+                )}
+                {cornerBL && (
+                  <div
+                    className={`absolute -bottom-[6px] sm:-bottom-[10px] -left-[6px] sm:-left-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${blInterior ? "" : "border-b-2 border-l-2 border-[#5A3A2A]"}`}
+                    style={{ backgroundColor: fillColor }}
+                  />
+                )}
+
                 {/* Anchor overlay — label/emoji centered inside the anchor cell.
                     The anchor itself is chosen as the centroid of the polygon
                     (see buildComponents), so a 1×1 overlay is always inside
@@ -285,14 +354,13 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 )}
 
                 {/* Difficulty bar — only on the bottom edge of a bot polygon.
-                    Absolutely positioned (ignores the button's p-1 padding)
-                    and extended past the merged side(s) by the full gap so it
-                    overlaps the neighbour's bar in the gap area. The border
-                    on the merged side is removed so two bars don't paint a
-                    cocoa "stitch" line where they meet. */}
+                    Solid fill, no cocoa-alpha borders, so when two bars
+                    overlap in the gap between merged cells the colour stays
+                    consistent (previously the half-opacity cocoa borders
+                    stacked and produced a darker stitch). */}
                 {!isPlayerTile && ownerBot && !item.mergeBottom && (
                   <div
-                    className={`absolute bottom-1 h-1 border-y border-cocoa/30 ${item.mergeLeft ? "-left-[6px] sm:-left-[10px] rounded-l-none border-l-0" : "left-1 rounded-l-full border-l border-cocoa/30"} ${item.mergeRight ? "-right-[6px] sm:-right-[10px] rounded-r-none border-r-0" : "right-1 rounded-r-full border-r border-cocoa/30"}`}
+                    className={`absolute bottom-1 h-1 ${item.mergeLeft ? "-left-[6px] sm:-left-[10px] rounded-l-none" : "left-1 rounded-l-full"} ${item.mergeRight ? "-right-[6px] sm:-right-[10px] rounded-r-none" : "right-1 rounded-r-full"}`}
                     style={{
                       backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
                       opacity: isLocked ? 0.4 : 1
