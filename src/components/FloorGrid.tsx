@@ -338,6 +338,16 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   <div className="absolute -bottom-[6px] sm:-bottom-[10px] -right-[2px] w-[2px] h-[6px] sm:h-[10px] bg-[#5A3A2A] pointer-events-none" />
                 )}
 
+                {/* Drop-shadow stitch — the per-cell shadow-[0_3px_0_#5A3A2A]
+                    on row-4 cells terminates at each cell's right edge, so a
+                    horizontal polygon along the bottom row showed the shadow
+                    as three separate strips with gaps. This bridges the col
+                    gap below mergeRight cells at the shadow's exact y-range
+                    (cell.bottom .. cell.bottom + 3px). */}
+                {cell.row === 4 && item.mergeRight && (
+                  <div className="absolute -bottom-[5px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[3px] bg-[#5A3A2A] pointer-events-none" />
+                )}
+
                 {/* Anchor overlay — label/emoji centered inside the anchor cell.
                     The anchor itself is chosen as the centroid of the polygon
                     (see buildComponents), so a 1×1 overlay is always inside
