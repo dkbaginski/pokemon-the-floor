@@ -1,5 +1,6 @@
 import { GridCell, Bot, BOTS, PLAYER_PROFILE } from "../bots";
-import { Shield, Swords, Compass } from "lucide-react";
+import { Swords } from "lucide-react";
+import { getPokemonImageUrl } from "../pokemonData";
 
 // Short label for a tile — used inside grid cells and in the duel header.
 // Player → "TY" / "YOU"; bots → "Gracz N" / "Player N".
@@ -155,46 +156,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
     };
   });
 
+  void playerTerritorySize; // (statistics now rendered by the parent banner — kept in props for callers)
   return (
     <div className="w-full font-sans text-cocoa select-none">
-      {/* Statystyki górne */}
-      <div className="mb-3 flex items-stretch gap-3 w-full">
-        <div className="w-1/2 flex items-center gap-2 text-xs text-cocoa font-bold bg-[#F2D5A7] px-3 py-2 rounded-[20px] border-2 border-[#5A3A2A] justify-center shadow-[0_3px_0_#5A3A2A]">
-          <Compass className="h-3.5 w-3.5 text-pokemon-navy shrink-0" />
-          <div className="text-left leading-tight">
-            <span className="block text-[9px] uppercase tracking-wider text-[#5A3A2A]/80 whitespace-nowrap font-semibold">{t.statsBoard}</span>
-            <span className="block text-xs font-black text-[#24456B] whitespace-nowrap">{t.statsRegions}</span>
-          </div>
-        </div>
-
-        <div className="w-1/2 flex items-center gap-2 text-xs text-pokemon-navy bg-[#FFD84D] border-2 border-pokemon-navy px-3 py-2 rounded-[20px] font-black justify-center shadow-[0_3px_0_#24456B]">
-          <Shield className="h-3.5 w-3.5 text-pokemon-navy shrink-0" />
-          <div className="text-left leading-tight">
-            <span className="block text-[9px] uppercase tracking-wider text-pokemon-navy/80 whitespace-nowrap font-semibold">{t.statsOwnFields}</span>
-            <span className="block text-xs font-mono font-black text-pokemon-navy">{playerTerritorySize}/25</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Legenda wyspowa */}
-      <div className="mb-3 flex items-center justify-center gap-4 text-[10px] font-black text-[#5A3A2A] bg-white border-2 border-[#5A3A2A] py-1.5 px-4 rounded-[16px] leading-none w-full shadow-[0_3px_0_#5A3A2A] antialiased">
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-[#FFD84D] border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
-          <span className="uppercase tracking-wider font-extrabold">{t.legendMy}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-white border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
-          <span className="uppercase tracking-wider font-extrabold">{t.legendAvailable}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-[#EADFC9] border-2 border-[#5A3A2A] flex-shrink-0 shadow-[0_1px_0_#5A3A2A]" />
-          <span className="text-[#5A3A2A] uppercase tracking-wider font-extrabold">{t.legendLocked}</span>
-        </div>
-      </div>
-
-      {/* Kontener Główny Planszy */}
-      <div className="relative overflow-hidden rounded-[24px] bg-[#F2D5A7] p-2.5 sm:p-3.5 shadow-[0_6px_0_#5A3A2A] border-2 border-[#5A3A2A]">
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#F2D5A7]">
+      {/* Kontener Główny Planszy — navy stamp board (design 02) */}
+      <div className="relative overflow-hidden rounded-[24px] bg-[#1B2840] p-2.5 sm:p-3.5 shadow-[0_6px_0_#5A3A2A] border-2 border-[#5A3A2A]">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#1B2840]">
           {gridItems.map((item) => {
             const cell = item.cell;
             const ownerBot = BOTS[cell.currentOwnerId];
@@ -274,7 +241,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 {/* Polygon-merge overlay — extends the cell's fill colour into
                     the adjacent gap on every merged side. Sits in the gap
                     area only (no overlap with neighbouring polygons because
-                    only merge sides extend). Behind all other content. */}
+                    only merge sides extend). Behind all other content.
+                    At polygon's outer corners (where the cell itself has a
+                    rounded corner via cornerClass), match the cell's INNER
+                    border-radius (outer radius minus 2px border) so the
+                    overlay's L-shape doesn't paint a sharp square over the
+                    cell's rounded bg curve. */}
                 {hasAnyMerge && (
                   <div
                     className={`absolute pointer-events-none ${
@@ -285,6 +257,14 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       item.mergeBottom ? "-bottom-[6px] sm:-bottom-[10px]" : "bottom-0"
                     } ${
                       item.mergeLeft ? "-left-[6px] sm:-left-[10px]" : "left-0"
+                    } ${
+                      (!item.mergeTop && !item.mergeLeft) ? "rounded-tl-[10px] sm:rounded-tl-[14px]" : ""
+                    } ${
+                      (!item.mergeTop && !item.mergeRight) ? "rounded-tr-[10px] sm:rounded-tr-[14px]" : ""
+                    } ${
+                      (!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-[10px] sm:rounded-bl-[14px]" : ""
+                    } ${
+                      (!item.mergeBottom && !item.mergeRight) ? "rounded-br-[10px] sm:rounded-br-[14px]" : ""
                     }`}
                     style={{ backgroundColor: fillColor }}
                   />
@@ -348,30 +328,32 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   <div className="absolute -bottom-[5px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[3px] bg-[#5A3A2A] pointer-events-none" />
                 )}
 
-                {/* Anchor overlay — label/emoji centered inside the anchor cell.
+                {/* Anchor overlay — label/sprite centered inside the anchor cell.
                     The anchor itself is chosen as the centroid of the polygon
                     (see buildComponents), so a 1×1 overlay is always inside
                     the territory and never overflows into neighbour tiles. */}
                 {item.isAnchor && isPlayerTile && (
                   <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1">
                     <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
-                    <span className="font-display font-black text-[9px] sm:text-[10px] text-[#24456B] uppercase tracking-wider leading-none">
-                      {t.playerTileLabel}
+                    <span className="font-display font-black text-[8px] sm:text-[9px] text-[#24456B] uppercase tracking-wider leading-none whitespace-nowrap">
+                      {t.boardPlayerNick || t.playerTileLabel}
                     </span>
                   </div>
                 )}
 
                 {item.isAnchor && !isPlayerTile && ownerBot && (
-                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1">
-                    <span
-                      className={`text-base sm:text-xl leading-none select-none transition-all ${isLocked ? "grayscale opacity-40" : ""}`}
-                    >
-                      {ownerBot.avatar}
-                    </span>
+                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 px-1">
+                    <img
+                      src={getPokemonImageUrl(ownerBot.pokemonPool[0] || 1)}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className={`h-7 w-7 sm:h-9 sm:w-9 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}
+                      style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.2))" }}
+                    />
                     <span
                       className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
                       style={{
-                        fontSize: "clamp(8.5px, 1.1vh, 10.5px)",
+                        fontSize: "clamp(8px, 1vh, 10px)",
                         color: item.isAdjacent ? "#24456B" : "#5A3A2A",
                         WebkitFontSmoothing: "antialiased",
                       }}
@@ -379,6 +361,17 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       {t.botLabel} {ownerBot.number}
                     </span>
                   </div>
+                )}
+
+                {/* Difficulty pin — small color-coded dot top-right of bot tiles */}
+                {item.isAnchor && !isPlayerTile && ownerBot && (
+                  <div
+                    className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-[#5A3A2A] pointer-events-none"
+                    style={{
+                      backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
+                      opacity: isLocked ? 0.4 : 1
+                    }}
+                  />
                 )}
 
                 {/* Difficulty bar — only on the bottom edge of a bot polygon.
