@@ -320,6 +320,24 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   />
                 )}
 
+                {/* Edge stitches — bridge the cocoa border across the gap on
+                    each merge side, but only at perpendicular edges that
+                    don't themselves merge (i.e. polygon outline crossing the
+                    merge gap). Owned solely by the cell that has mergeRight /
+                    mergeBottom to avoid double-painting from both neighbours. */}
+                {item.mergeRight && !item.mergeTop && (
+                  <div className="absolute -top-[2px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[2px] bg-[#5A3A2A] pointer-events-none" />
+                )}
+                {item.mergeRight && !item.mergeBottom && (
+                  <div className="absolute -bottom-[2px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[2px] bg-[#5A3A2A] pointer-events-none" />
+                )}
+                {item.mergeBottom && !item.mergeLeft && (
+                  <div className="absolute -bottom-[6px] sm:-bottom-[10px] -left-[2px] w-[2px] h-[6px] sm:h-[10px] bg-[#5A3A2A] pointer-events-none" />
+                )}
+                {item.mergeBottom && !item.mergeRight && (
+                  <div className="absolute -bottom-[6px] sm:-bottom-[10px] -right-[2px] w-[2px] h-[6px] sm:h-[10px] bg-[#5A3A2A] pointer-events-none" />
+                )}
+
                 {/* Anchor overlay — label/emoji centered inside the anchor cell.
                     The anchor itself is chosen as the centroid of the polygon
                     (see buildComponents), so a 1×1 overlay is always inside
