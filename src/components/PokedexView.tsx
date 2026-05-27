@@ -1,6 +1,6 @@
 import { useState, memo } from "react";
 import { POKEMON_LIST, getPokemonImageUrl, POKEMON_TYPES_PL, Pokemon, getTypeName } from "../pokemonData";
-import { Search, Lock, Award, Eye, X, BookOpen } from "lucide-react";
+import { Search, Lock, Award, Eye, X, ChevronLeft } from "lucide-react";
 
 interface PokedexViewProps {
   unlockedIds: number[]; // represents CAUGHT
@@ -232,54 +232,66 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
   return (
     <div className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
+
+      {/* Red gradient header bar (design 04) — only on list view, hidden in detail */}
       {!selectedPokeDetail && (
-        <header className="h-16 w-full bg-[#FFF4DF] border-b-2 border-[#5A3A2A] px-4 flex items-center justify-between sticky top-0 z-50 select-none font-sans shrink-0">
-          <h2 className="font-display font-black tracking-tight text-sm sm:text-base text-pokemon-navy uppercase italic flex items-center gap-1.5 shrink-0">
-            <BookOpen className="h-4 w-4 text-[#24456B]" />
-            <span>{t.pokedexTitle}</span>
-          </h2>
+        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] px-4 pt-3 pb-3 relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* Pokéball circle */}
+              <div className="h-10 w-10 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-1/2 bg-[#24456B]" />
+                <div className="relative h-3 w-3 rounded-full bg-white border-2 border-[#5A3A2A]" />
+              </div>
+              {/* Dots */}
+              <div className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#5A3A2A]/40" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFD84D]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#A9E6CF]" />
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-display font-black text-base italic uppercase text-white leading-none">
+                {t.pokedexTitle}
+              </div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-white/80 mt-0.5">
+                KANTO · NAT.
+              </div>
+            </div>
+          </div>
+
+          {/* Stats inline pills */}
+          <div className="mt-2.5 grid grid-cols-4 gap-1.5">
+            <div className="bg-[#C53636] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
+              <div className="font-mono font-black text-sm text-white leading-none">{percentage}%</div>
+              <div className="text-[7px] font-black uppercase tracking-wider text-white/85 mt-0.5">POSTĘP</div>
+            </div>
+            <div className="bg-[#A9E6CF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
+              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
+              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricCaught}</div>
+            </div>
+            <div className="bg-[#BDEBFF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
+              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{String(seenCount).padStart(2, "0")}</div>
+              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricSeen}</div>
+            </div>
+            <div className="bg-[#FFD84D] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
+              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{totalCount}</div>
+              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">TOTAL</div>
+            </div>
+          </div>
+
+          {/* Close button — corner X */}
           <button
             onClick={onClose}
-            className="rounded-xl bg-white-frost hover:bg-cafe-beige transition text-cocoa px-3.5 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider border-2 border-cocoa shadow-[0_3px_0_#5A3A2A] cursor-pointer"
+            className="absolute top-2 right-3 rounded-full bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] hover:bg-cafe-beige w-7 h-7 flex items-center justify-center transition cursor-pointer shadow-[0_2px_0_#5A3A2A]"
+            aria-label={t.pokedexClose}
           >
-            {t.pokedexClose}
+            <X className="h-3.5 w-3.5" />
           </button>
-        </header>
+        </div>
       )}
 
-      <div className="mx-auto max-w-lg px-4 pt-4 pb-2 w-full flex-1 flex flex-col overflow-hidden">
-        {/* Stats Card */}
-        <div className="mb-6 rounded-[24px] bg-cafe-beige border-2 border-[#5A3A2A] p-5 shadow-[0_4px_0_#5A3A2A]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-black uppercase tracking-wider text-cocoa/80">{t.pokedexProgress}:</span>
-            <span className="font-mono text-sm font-black text-pokemon-navy">
-              {unlockedCount} / {totalCount} ({percentage}%)
-            </span>
-          </div>
-          <div className="h-4 w-full rounded-full bg-white-frost overflow-hidden border-2 border-[#5A3A2A] p-0.5">
-            <div
-              className="h-full bg-lemon-yellow rounded-full transition-all duration-500 shadow-sm"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-
-          <div className="mt-4 flex gap-2 justify-around text-center text-xs text-cocoa border-t-2 border-[#5A3A2A]/20 pt-4 font-bold">
-            <div>
-              <p className="font-mono font-black text-pokemon-navy text-sm">{unlockedCount}</p>
-              <p className="text-[10px] text-cocoa/70 uppercase tracking-widest font-black mt-0.5">{t.metricCaught}</p>
-            </div>
-            <div className="border-l-2 border-[#5A3A2A]/20 h-6" />
-            <div>
-              <p className="font-mono font-black text-pokemon-navy text-sm">{seenCount}</p>
-              <p className="text-[10px] text-cocoa/70 uppercase tracking-widest font-black mt-0.5">{t.metricSeen}</p>
-            </div>
-            <div className="border-l-2 border-[#5A3A2A]/20 h-6" />
-            <div>
-              <p className="font-mono font-black text-coral text-sm uppercase">Kanto</p>
-              <p className="text-[10px] text-cocoa/70 uppercase tracking-widest font-black mt-0.5">Total: 151</p>
-            </div>
-          </div>
-        </div>
+      <div className="mx-auto max-w-lg px-4 pt-3 pb-2 w-full flex-1 flex flex-col overflow-hidden">
 
         {/* Filters Panel */}
         <div className="space-y-3 mb-6">
@@ -324,140 +336,175 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
         {/* Pokemon Grid Scrollable Wrapper */}
         <div className="flex-1 overflow-y-auto min-h-0 pr-1 pb-4">
-          <div className="grid grid-cols-3 gap-2.5">
-            {filteredPokemon.map((poke) => {
-              const isCaught = unlockedSet.has(poke.id);
-              const isSeen = seenSet.has(poke.id);
-              const isUnlocked = isCaught || isSeen;
-              return (
-                <PokemonCard
-                  key={poke.id}
-                  poke={poke}
-                  isCaught={isCaught}
-                  isSeen={isSeen}
-                  isUnlocked={isUnlocked}
-                  language={language}
-                  t={t}
-                  onSelect={setSelectedPokeDetail}
-                />
-              );
-            })}
-          </div>
-
-          {filteredPokemon.length === 0 && (
-            <div className="text-center py-12 text-cocoa/65 text-sm font-bold">
-              {t.pokedexSearchNone}
+          {/* Empty state (design 04a) — only when truly nothing collected and no filter active */}
+          {seenSet.size === 0 && !searchTerm && !selectedType ? (
+            <div className="rounded-2xl border-2 border-dashed border-[#5A3A2A] bg-white p-5 text-center flex flex-col items-center gap-2 mt-2 shadow-[0_3px_0_#5A3A2A]">
+              <div className="h-16 w-16 rounded-full bg-[#E95050]/15 border-2 border-dashed border-[#5A3A2A] flex items-center justify-center">
+                <div className="font-mono font-black text-[10px] text-[#5A3A2A]/70">
+                  0<span className="text-[#5A3A2A]/40">/151</span>
+                </div>
+              </div>
+              <h3 className="font-display font-black text-base italic uppercase text-[#5A3A2A] leading-none mt-1">
+                {t.dexEmptyTitle}
+              </h3>
+              <p className="text-[11px] text-[#5A3A2A]/85 font-bold leading-snug max-w-xs">
+                {t.dexEmptyBody}
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-2 w-full max-w-[300px] btn-core-berry py-3 flex items-center justify-center gap-1.5"
+              >
+                <span>📖</span>
+                <span>{t.dexEmptyCta}</span>
+              </button>
+              <p className="text-[8px] font-black uppercase tracking-widest text-[#5A3A2A]/60 mt-1">
+                {t.dexEmptyHint}
+              </p>
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2.5">
+                {filteredPokemon.map((poke) => {
+                  const isCaught = unlockedSet.has(poke.id);
+                  const isSeen = seenSet.has(poke.id);
+                  const isUnlocked = isCaught || isSeen;
+                  return (
+                    <PokemonCard
+                      key={poke.id}
+                      poke={poke}
+                      isCaught={isCaught}
+                      isSeen={isSeen}
+                      isUnlocked={isUnlocked}
+                      language={language}
+                      t={t}
+                      onSelect={setSelectedPokeDetail}
+                    />
+                  );
+                })}
+              </div>
+
+              {filteredPokemon.length === 0 && (
+                <div className="text-center py-12 text-cocoa/65 text-sm font-bold">
+                  {t.pokedexSearchNone}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* --- RETRO CARD ZOOM DETAIL MODAL --- */}
-      {selectedPokeDetail && (
-        <div
-          id="pokedex-detail-fullbleed"
-          className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-between overflow-hidden p-5 select-none text-cocoa"
-        >
-          {/* Background soft glow based on primary type */}
-          {(() => {
-            const primaryType = selectedPokeDetail.types[0] || "normal";
-            const typeDetail = POKEMON_TYPES_PL[primaryType];
-            const hex = typeDetail?.bgHex || "#3b4cca";
-            return (
-              <div
-                className="absolute inset-0 opacity-15 blur-3xl pointer-events-none"
-                style={{ background: `radial-gradient(circle at center, ${hex} 0%, transparent 75%)` }}
-              />
-            );
-          })()}
+      {/* --- POKÉMON DETAIL CARD (design 09) --- */}
+      {selectedPokeDetail && (() => {
+        const primaryType = selectedPokeDetail.types[0] || "normal";
+        const typeBgHex = POKEMON_TYPES_PL[primaryType]?.bgHex || "#FFD84D";
+        const isPokeCaught = unlockedSet.has(selectedPokeDetail.id);
+        const entryNumber = isPokeCaught
+          ? [...unlockedIds].indexOf(selectedPokeDetail.id) + 1
+          : null;
 
-          {/* Retro Top bar */}
-          <div className="flex items-center justify-between border-b-2 border-[#5A3A2A]/20 pb-3 z-10 shrink-0">
-            <span className="font-mono text-xs font-black text-[#5A3A2A]">
-              POKÉDEX #{selectedPokeDetail.id.toString().padStart(3, "0")}
-            </span>
-            <span className="text-[10px] text-pokemon-navy uppercase tracking-widest font-black">
-              {t.pokedexPokemonCategory}
-            </span>
-          </div>
-
-          {/* Full content layout - Flex column with fluid support to prevent any layout overflow */}
-          <div className="flex-1 flex flex-col items-center justify-center px-2 fluid-gap-medium z-10 overflow-hidden">
-            {/* Holographic Glowing Frame */}
-            <div className="relative h-[22vh] w-[22vh] max-h-40 max-w-40 min-h-[110px] min-w-[110px] rounded-full bg-white-frost flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_4px_8px_rgba(90,58,42,0.18)] shrink-0">
-              <div className="absolute inset-0 rounded-full bg-cafe-beige/10" />
-              <img
-                src={getPokemonImageUrl(selectedPokeDetail.id)}
-                alt={selectedPokeDetail.name}
-                referrerPolicy="no-referrer"
-                className="h-4/5 w-4/5 object-contain z-10"
-                style={{ filter: "drop-shadow(0 4px 6px rgba(90,58,42,0.2))" }}
-              />
+        return (
+          <div
+            id="pokedex-detail-fullbleed"
+            className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa"
+          >
+            {/* Top bar — POKÉDEX back | POKÉ brand | X */}
+            <div className="shrink-0 h-12 border-b-2 border-[#5A3A2A] bg-[#FFF4DF] px-3 flex items-center justify-between z-10">
+              <button
+                onClick={() => setSelectedPokeDetail(null)}
+                className="flex items-center gap-1 bg-white border-2 border-[#5A3A2A] rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] hover:bg-cafe-beige transition cursor-pointer"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                {t.cardTopBackToList}
+              </button>
+              <div className="bg-[#FFD84D] text-[#24456B] font-display font-black text-[11px] px-3 py-1 rounded-xl border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] tracking-tight uppercase italic">
+                ● POKÉ
+              </div>
+              <button
+                onClick={onClose}
+                className="rounded-xl bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] hover:bg-cafe-beige w-8 h-8 flex items-center justify-center shadow-[0_2px_0_#5A3A2A] cursor-pointer"
+                aria-label={t.pokedexClose}
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            {/* Name titles */}
-            <div className="text-center shrink-0">
-              <h3 className="font-display font-black text-2xl sm:text-3xl text-[#5A3A2A] tracking-tight uppercase leading-none">
-                {selectedPokeDetail.name}
-              </h3>
-            </div>
+            {/* Main card */}
+            <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 z-10">
+              <div className="rounded-3xl border-2 border-[#5A3A2A] bg-white shadow-[0_4px_0_#5A3A2A] overflow-hidden">
 
-            {/* Types Row with custom hex badges */}
-            <div className="flex justify-center gap-1.5 shrink-0">
-              {selectedPokeDetail.types.map((typeKey) => {
-                const detail = POKEMON_TYPES_PL[typeKey];
-                return (
-                  <span
-                    key={typeKey}
-                    className="px-3.5 py-1 text-[10px] font-black tracking-wider text-[#5A3A2A] uppercase rounded-full shadow-sm border-2 border-[#5A3A2A]"
-                    style={{ backgroundColor: detail?.bgHex || "#FFF" }}
-                  >
-                    {getTypeName(typeKey, language)}
-                  </span>
-                );
-              })}
-            </div>
+                {/* Card header — type-tinted gradient */}
+                <div
+                  className="px-4 py-3 border-b-2 border-[#5A3A2A] relative"
+                  style={{
+                    background: `linear-gradient(135deg, ${typeBgHex}E0 0%, ${typeBgHex} 100%)`
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-[#5A3A2A]/80">
+                        #{String(selectedPokeDetail.id).padStart(3, "0")} · {t.cardCategoryPlaceholder}
+                      </div>
+                      <h2 className="font-display font-black text-2xl text-white tracking-tight uppercase italic leading-none mt-0.5 drop-shadow-[0_2px_0_rgba(90,58,42,0.5)]">
+                        {selectedPokeDetail.name}
+                      </h2>
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {selectedPokeDetail.types.map((typeKey) => (
+                        <span
+                          key={typeKey}
+                          className="px-2.5 py-0.5 text-[9px] font-black tracking-wider text-[#5A3A2A] uppercase rounded-full shadow-sm border-2 border-[#5A3A2A] text-center bg-white"
+                        >
+                          {getTypeName(typeKey, language)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-            {/* Collection Status */}
-            {(() => {
-              const isPokeCaught = unlockedSet.has(selectedPokeDetail.id);
-              return (
-                <div className="shrink-0">
+                {/* Image panel — sandy/cream background */}
+                <div className="relative bg-[#FFF4DF] flex items-center justify-center py-4">
+                  {/* Mini pokeball corner accent */}
+                  <div className="absolute bottom-2 left-3 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] flex items-center justify-center overflow-hidden">
+                    <div className="absolute inset-x-0 top-0 h-1/2 bg-[#E95050]" />
+                    <div className="relative h-1 w-1 rounded-full bg-white border border-[#5A3A2A]" />
+                  </div>
+                  <img
+                    src={getPokemonImageUrl(selectedPokeDetail.id)}
+                    alt={selectedPokeDetail.name}
+                    referrerPolicy="no-referrer"
+                    className="object-contain"
+                    style={{ height: "clamp(120px, 22vh, 180px)", filter: "drop-shadow(0 4px 8px rgba(90,58,42,0.25))" }}
+                  />
+                </div>
+
+                {/* Lore panel — dark navy */}
+                <div className="bg-[#1B2840] text-white px-4 py-3 border-t-2 border-[#5A3A2A]">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-[#FFD84D] mb-1.5 flex items-center gap-1">
+                    ● {t.pokedexDatabaseTitle}
+                  </div>
+                  <div className="text-[11px] leading-relaxed text-white/90 font-bold">
+                    {getPokemonDescription(selectedPokeDetail.id, selectedPokeDetail.name, selectedPokeDetail.types, language)}
+                  </div>
+                </div>
+
+                {/* Status pill row */}
+                <div className="px-4 py-3 flex justify-center">
                   {isPokeCaught ? (
-                    <span className="text-[#24456B] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#A9E6CF] border-2 border-[#5A3A2A] px-3.5 py-1 rounded-full shadow-sm">
-                      <Award className="h-4 w-4" /> {t.statusCaught}
+                    <span className="text-[#24456B] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#A9E6CF] border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">
+                      <Award className="h-3.5 w-3.5" /> {t.statusCaught}
+                      {entryNumber !== null && <> · {t.cardEntryLabel} #{String(entryNumber).padStart(3, "0")}</>}
                     </span>
                   ) : (
-                    <span className="text-[#5A3A2A] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#BDEBFF] border-2 border-[#5A3A2A] px-3.5 py-1 rounded-full shadow-sm">
-                      <Eye className="h-4 w-4 text-[#5A3A2A]" /> {t.statusSeen}
+                    <span className="text-[#5A3A2A] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#BDEBFF] border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">
+                      <Eye className="h-3.5 w-3.5 text-[#5A3A2A]" /> {t.statusSeen}
                     </span>
                   )}
                 </div>
-              );
-            })()}
-
-            {/* Retro Lore text block */}
-            <div className="w-full max-w-sm bg-white-frost border-2 border-[#5A3A2A] rounded-2xl p-4 shadow-md flex-1 min-h-[80px] overflow-hidden flex flex-col justify-start">
-              <span className="text-[10px] font-black text-[#5A3A2A] uppercase tracking-widest border-b-2 border-[#5A3A2A]/25 pb-1.5 mb-2 block shrink-0">
-                {t.pokedexDatabaseTitle}
-              </span>
-              <div className="text-xs text-[#5A3A2A] leading-relaxed font-bold overflow-y-auto pr-1 flex-1">
-                {getPokemonDescription(selectedPokeDetail.id, selectedPokeDetail.name, selectedPokeDetail.types, language)}
               </div>
             </div>
           </div>
-
-          {/* Primary Action Button Bar */}
-          <div className="pt-2 z-10 shrink-0">
-            <button
-              onClick={() => setSelectedPokeDetail(null)}
-              className="w-full btn-core-yellow py-4"
-            >
-              {t.backToPokedexBtn}
-            </button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
