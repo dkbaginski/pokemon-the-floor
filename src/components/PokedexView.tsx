@@ -63,24 +63,23 @@ const PokemonCard = memo(function PokemonCard({
         {formattedId}
       </div>
 
-      {/* Sighted-only marker — blue eye badge, design 04. Sits top-left so it
-          doesn't collide with the #ID counter. */}
+      {/* Status badges — same palette as the detail-card pills so the grid
+          and detail views stay visually consistent. Sighted = light-blue eye;
+          caught = soft-mint medal. */}
       {isSeen && !isCaught && (
         <div
-          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#24456B] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
+          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
           title={t.statusSeen}
         >
-          <EyeIcon size={10} color="#FFFFFF" strokeWidth={2.2} />
+          <EyeIcon size={10} color="#24456B" strokeWidth={2.4} />
         </div>
       )}
-
-      {/* Caught marker — white Pokéball badge, mirrors the eye badge slot. */}
       {isCaught && (
         <div
-          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center overflow-hidden"
+          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#A9E6CF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
           title={t.statusCaught}
         >
-          <PokeBallLogoIcon size={14} ink="#5A3A2A" red="#DC2630" />
+          <Award className="h-3 w-3 text-[#24456B]" strokeWidth={2.4} />
         </div>
       )}
 
@@ -263,12 +262,10 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
       {/* Red gradient header bar (design 04) — only on list view, hidden in detail */}
       {!selectedPokeDetail && (
-        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] pl-4 pr-12 pt-3 pb-3 relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {/* Pokéball — classic red top, white bottom (design 04). The
-                  ring around the SVG keeps the original cocoa shadow so the
-                  ball still pops off the red banner. */}
+        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] pl-3 pr-14 pt-3 pb-3 relative">
+          <div className="flex items-center gap-2">
+            <div className="shrink-0 flex items-center gap-2">
+              {/* Pokéball — classic red top, white bottom (design 04). */}
               <div className="h-10 w-10 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] flex items-center justify-center bg-white">
                 <PokeBallLogoIcon size={32} ink="#5A3A2A" red="#DC2630" />
               </div>
@@ -279,7 +276,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                 <span className="h-1.5 w-1.5 rounded-full bg-[#A9E6CF]" />
               </div>
             </div>
-            <div className="text-right min-w-0">
+            <div className="flex-1 min-w-0 text-right">
               <div className="font-display font-black text-base italic uppercase text-white leading-none truncate">
                 {t.pokedexTitle}
               </div>
@@ -452,23 +449,23 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
             id="pokedex-detail-fullbleed"
             className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa"
           >
-            {/* Top bar — POKÉDEX back chevron + POKÉ brand pill.
-                Top-right X removed per design (CLAUDE.md §5): the only exit is
-                the persistent yellow "POWRÓT DO POKÉDEXU" CTA at the bottom. */}
-            <div className="shrink-0 h-12 border-b-2 border-[#5A3A2A] bg-[#FFF4DF] px-3 flex items-center justify-between z-10">
+            {/* Top bar — POKÉ THE FLOOR brand acting as the "home" affordance,
+                mirroring the main app top bar (which the detail overlay covers).
+                Back-to-list nav lives in the persistent yellow CTA at the bottom. */}
+            <div className="shrink-0 h-12 border-b-2 border-[#5A3A2A] bg-[#FFF4DF] px-3 flex items-center z-10">
               <button
-                onClick={() => setSelectedPokeDetail(null)}
-                className="flex items-center gap-1 bg-white border-2 border-[#5A3A2A] rounded-xl px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] hover:bg-cafe-beige transition cursor-pointer"
+                onClick={onClose}
+                className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
+                title={t.cardBackToPokedex}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                {t.cardTopBackToList}
+                <div className="bg-[#1B2840] text-white font-black text-[11px] pl-1 pr-2.5 py-1 rounded-full tracking-tight uppercase italic border-2 border-[#1B2840] shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5">
+                  <PokeBallLogoIcon size={16} ink="#1B2840" red="#DC2630" />
+                  <span>POKÉ</span>
+                </div>
+                <span className="font-display font-black tracking-tight text-xs text-[#5A3A2A] uppercase italic">
+                  THE FLOOR
+                </span>
               </button>
-              <div className="bg-[#FFD84D] text-[#24456B] font-display font-black text-[11px] px-3 py-1 rounded-xl border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] tracking-tight uppercase italic">
-                ● POKÉ
-              </div>
-              {/* Spacer keeps the POKÉ pill visually centred between the back
-                  chevron and the right edge. Width matches the back button. */}
-              <div className="w-[88px]" aria-hidden="true" />
             </div>
 
             {/* Main card */}
@@ -506,11 +503,6 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
                 {/* Image panel — sandy/cream background */}
                 <div className="relative bg-[#FFF4DF] flex items-center justify-center py-4">
-                  {/* Mini pokeball corner accent */}
-                  <div className="absolute bottom-2 left-3 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] flex items-center justify-center overflow-hidden">
-                    <div className="absolute inset-x-0 top-0 h-1/2 bg-[#E95050]" />
-                    <div className="relative h-1 w-1 rounded-full bg-white border border-[#5A3A2A]" />
-                  </div>
                   <img
                     src={getPokemonImageUrl(selectedPokeDetail.id)}
                     alt={selectedPokeDetail.name}
