@@ -1427,12 +1427,12 @@ export default function App() {
       {showHelp && (
         <div className="fixed inset-x-0 top-16 bottom-[68px] z-20 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
-          <div className="mx-auto max-w-lg w-full flex-1 flex flex-col min-h-0">
-
-            {/* Scrollable body — chapters + tips. The "Rozumiem, grajmy!" CTA
-                lives in a sticky footer below so it stays in the thumb zone
-                without users having to scroll past three chapters first. */}
-            <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 flex flex-col gap-2.5 min-h-0">
+          {/* Scrollable body — the overflow-y-auto wraps the full width so
+              touch scroll responds anywhere on the viewport, not just inside
+              the centred max-w-lg column. Content is then centred inside the
+              scroll container. */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="mx-auto max-w-lg w-full px-3 pt-3 pb-2 flex flex-col gap-2.5">
 
             {/* Header card "JAK GRAĆ?" */}
             <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] px-3 py-2.5 shadow-[0_3px_0_#5A3A2A]">
@@ -1529,9 +1529,13 @@ export default function App() {
             </div>
 
             </div>
+          </div>
 
-            {/* Sticky CTA footer — always visible above the bottom nav. */}
-            <div className="shrink-0 px-3 pt-2 pb-3 border-t-2 border-[#5A3A2A] bg-[#FFF4DF]">
+          {/* Sticky CTA footer — always visible above the bottom nav.
+              Lives outside the scroll container so it doesn't move with
+              the content. */}
+          <div className="shrink-0 border-t-2 border-[#5A3A2A] bg-[#FFF4DF]">
+            <div className="mx-auto max-w-lg w-full px-3 pt-2 pb-3">
               <button
                 onClick={() => setShowHelp(false)}
                 className="w-full btn-core-yellow py-3.5"
