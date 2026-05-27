@@ -1,6 +1,7 @@
 import { useState, memo } from "react";
 import { POKEMON_LIST, getPokemonImageUrl, POKEMON_TYPES_PL, Pokemon, getTypeName } from "../pokemonData";
-import { Search, Lock, Award, Eye, X, ChevronLeft } from "lucide-react";
+import { Search, Lock, Award, X, ChevronLeft } from "lucide-react";
+import { EyeIcon, ProgressRing, PokeBallLogoIcon } from "./icons";
 
 interface PokedexViewProps {
   unlockedIds: number[]; // represents CAUGHT
@@ -36,12 +37,15 @@ const PokemonCard = memo(function PokemonCard({
   const formattedId = `#${poke.id.toString().padStart(3, "0")}`;
   const pokemonImgUrl = getPokemonImageUrl(poke.id);
   
-  // 2. Nadanie bezpiecznych, czystych stylów tła (Koniec z brudnym bleedem pastelowym)
+  // Card background: neutral cream for sighted-only Pokémon, white for caught.
+  // The "seen" state used to dye the whole card blue (#BDEBFF) which read as a
+  // blue overlay over the silhouette — design 04 keeps the card neutral and
+  // surfaces the sighted state via a small blue eye badge (see below).
   let cardBg = "bg-[#F2D5A7]/30 border-2 border-[#5A3A2A]/45 cursor-not-allowed";
   if (isCaught) {
     cardBg = "bg-white border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#FFF4DF]/15 cursor-pointer active:scale-95 duration-100";
   } else if (isSeen) {
-    cardBg = "bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-[#BDEBFF]/90 cursor-pointer active:scale-95 duration-100";
+    cardBg = "bg-[#FFF4DF] border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] hover:bg-white cursor-pointer active:scale-95 duration-100";
   }
 
   // 3. Pobranie i utrwalenie nazw typów
@@ -59,6 +63,17 @@ const PokemonCard = memo(function PokemonCard({
         {formattedId}
       </div>
 
+      {/* Sighted-only marker — blue eye badge, design 04. Sits top-left so it
+          doesn't collide with the #ID counter. */}
+      {isSeen && !isCaught && (
+        <div
+          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#24456B] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
+          title={t.statusSeen}
+        >
+          <EyeIcon size={10} color="#FFFFFF" strokeWidth={2.2} />
+        </div>
+      )}
+
       {/* Picture Container */}
       <div className="my-2 h-14 w-14 flex items-center justify-center relative">
         {isUnlocked ? (
@@ -66,7 +81,7 @@ const PokemonCard = memo(function PokemonCard({
             src={pokemonImgUrl}
             alt={poke.name}
             referrerPolicy="no-referrer"
-            className={`h-12 w-12 object-contain ${!isCaught && isSeen ? "brightness-0 opacity-30 grayscale" : ""}`}
+            className={`h-12 w-12 object-contain ${!isCaught && isSeen ? "brightness-0 opacity-60 grayscale" : ""}`}
             style={{ filter: isCaught ? "drop-shadow(0 2px 4px rgba(90,58,42,0.15))" : "none" }}
           />
         ) : (
@@ -91,13 +106,16 @@ const PokemonCard = memo(function PokemonCard({
           {isUnlocked ? (isCaught ? poke.name : t.statusSeen) : "???"}
         </div>
         
-        {/* Stable High-Contrast Types Footprint Box */}
-        <div className="mt-1 flex flex-col gap-0.5 items-center justify-center w-full min-h-[30px] select-none pb-1.5">
+        {/* Stable High-Contrast Types Footprint Box — full-card-width pills
+            so longer Polish names ("TRAWIASTY", "PSYCHICZNY", "ELEKTRYCZNY")
+            fit without truncation. Empty slot keeps a 14px placeholder so
+            single-type Pokémon stay vertically aligned with dual-type ones. */}
+        <div className="mt-1 flex flex-col gap-0.5 items-stretch justify-center w-full min-h-[30px] select-none pb-1.5">
           <div className="flex items-center justify-center h-3.5 w-full">
             {type1Name ? (
               <span
-                className="px-1.5 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate font-black"
-                style={{ 
+                className="px-2 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-full text-center font-black"
+                style={{
                   backgroundColor: POKEMON_TYPES_PL[poke.types[0]]?.bgHex || "#A9E6CF",
                   color: "#5A3A2A",
                   WebkitFontSmoothing: "antialiased"
@@ -107,17 +125,17 @@ const PokemonCard = memo(function PokemonCard({
                 {type1Name}
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
+              <span className="px-2 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-full text-center">
                 EMPTY
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center justify-center h-3.5 w-full">
             {type2Name ? (
               <span
-                className="px-1.5 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-16 text-center truncate font-black"
-                style={{ 
+                className="px-2 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-full text-center font-black"
+                style={{
                   backgroundColor: POKEMON_TYPES_PL[poke.types[1]]?.bgHex || "#A9E6CF",
                   color: "#5A3A2A",
                   WebkitFontSmoothing: "antialiased"
@@ -127,7 +145,7 @@ const PokemonCard = memo(function PokemonCard({
                 {type2Name}
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-16 text-center">
+              <span className="px-2 py-0.5 text-[8px] text-transparent bg-transparent rounded select-none pointer-events-none w-full text-center">
                 EMPTY
               </span>
             )}
@@ -238,10 +256,11 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
         <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] px-4 pt-3 pb-3 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* Pokéball circle */}
-              <div className="h-10 w-10 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-x-0 top-0 h-1/2 bg-[#24456B]" />
-                <div className="relative h-3 w-3 rounded-full bg-white border-2 border-[#5A3A2A]" />
+              {/* Pokéball — classic red top, white bottom (design 04). The
+                  ring around the SVG keeps the original cocoa shadow so the
+                  ball still pops off the red banner. */}
+              <div className="h-10 w-10 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] flex items-center justify-center bg-white">
+                <PokeBallLogoIcon size={32} ink="#5A3A2A" red="#DC2630" />
               </div>
               {/* Dots */}
               <div className="flex items-center gap-1">
@@ -260,23 +279,39 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
             </div>
           </div>
 
-          {/* Stats inline pills */}
-          <div className="mt-2.5 grid grid-cols-4 gap-1.5">
-            <div className="bg-[#C53636] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
-              <div className="font-mono font-black text-sm text-white leading-none">{percentage}%</div>
-              <div className="text-[7px] font-black uppercase tracking-wider text-white/85 mt-0.5">POSTĘP</div>
+          {/* Stats row — progress ring + 3 metric pills (design 04). The ring
+              visualises % caught out of 151 and holds the caught count in its
+              centre disc; the side pills surface the rest of the numbers. */}
+          <div className="mt-2.5 flex items-stretch gap-2">
+            <div className="shrink-0">
+              <ProgressRing
+                value={unlockedCount}
+                max={totalCount}
+                size={64}
+                arcColor="#FFD84D"
+                trackColor="rgba(0,0,0,0.22)"
+                faceColor="#FFFFFF"
+                borderColor="#1B2840"
+              >
+                <div className="flex flex-col items-center leading-none">
+                  <span className="font-mono font-black text-[13px] text-[#1B2840]">{percentage}%</span>
+                  <span className="text-[7px] font-black uppercase tracking-widest text-[#5A3A2A]/70 mt-0.5">POSTĘP</span>
+                </div>
+              </ProgressRing>
             </div>
-            <div className="bg-[#A9E6CF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
-              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
-              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricCaught}</div>
-            </div>
-            <div className="bg-[#BDEBFF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
-              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{String(seenCount).padStart(2, "0")}</div>
-              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricSeen}</div>
-            </div>
-            <div className="bg-[#FFD84D] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center">
-              <div className="font-mono font-black text-sm text-[#5A3A2A] leading-none">{totalCount}</div>
-              <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">TOTAL</div>
+            <div className="flex-1 grid grid-cols-3 gap-1.5">
+              <div className="bg-[#A9E6CF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricCaught}</div>
+              </div>
+              <div className="bg-[#BDEBFF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(seenCount).padStart(2, "0")}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricSeen}</div>
+              </div>
+              <div className="bg-[#FFD84D] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{totalCount}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">TOTAL</div>
+              </div>
             </div>
           </div>
 
@@ -496,7 +531,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                     </span>
                   ) : (
                     <span className="text-[#5A3A2A] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#BDEBFF] border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">
-                      <Eye className="h-3.5 w-3.5 text-[#5A3A2A]" /> {t.statusSeen}
+                      <EyeIcon size={14} color="#24456B" strokeWidth={2.2} /> {t.statusSeen}
                     </span>
                   )}
                 </div>
