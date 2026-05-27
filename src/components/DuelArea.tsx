@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
 import { Pokemon, POKEMON_LIST, getPokemonImageUrl, isCorrectPokemonName } from "../pokemonData";
 import { Bot } from "../bots";
-import { Mic, AlertCircle, CornerDownLeft, ShieldAlert } from "lucide-react";
+import { Mic, AlertCircle, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface DuelAreaProps {
   opponent: Bot;
   pokemonPool: number[];                       // Pokédex IDs assignable in this duel
   recentlyShownIds: number[];                  // Persistent rolling-window log from App
   onPokemonShown: (id: number) => void;        // Callback to extend the persistent log
-  onDuelFinish: (winnerId: string, stats: { userCorrect: number; userPassed: number; timerRemaining: number }) => void;
+  onDuelFinish: (winnerId: string, stats: { userCorrect: number; userPassed: number; timerRemaining: number; lastPokemonId: number | null; newlyUnlocked: number[] }) => void;
   onUnlockPokemon: (id: number) => void;
   onSeePokemon?: (id: number) => void;
   language: "pl" | "en";
@@ -47,6 +47,10 @@ export default function DuelArea({
   const [opponentGuessText, setOpponentGuessText] = useState("");
   const opponentThinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- PAS flash (design 07c) — 5s red-mode after player passes ---
+  const [passFlashUntil, setPassFlashUntil] = useState<number>(0);
+  const isPassFlash = passFlashUntil > Date.now();
+
   // --- References for visual timers ---
   const intervalRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,6 +59,9 @@ export default function DuelArea({
   // Seeded from App-level rolling window so back-to-back duels don't repeat.
   const shownPokemonIdsRef = useRef<number[]>([...recentlyShownIds]);
   const instanceEndedRef = useRef<boolean>(false);
+
+  // Track Pokémon IDs the player correctly named during this duel — surfaced on the win screen.
+  const newlyUnlockedRef = useRef<number[]>([]);
 
   // Resolve the bot's pool into actual Pokémon records.
   const getPoolPokemon = (): Pokemon[] => {
@@ -182,6 +189,9 @@ export default function DuelArea({
 
     if (isCorrectPokemonName(transcript, currentPokemon.name)) {
       onUnlockPokemon(currentPokemon.id);
+      if (!newlyUnlockedRef.current.includes(currentPokemon.id)) {
+        newlyUnlockedRef.current.push(currentPokemon.id);
+      }
       setPokedexStats((prev) => ({ ...prev, correct: prev.correct + 1 }));
       setTypedAnswer("");
       setHeardText("");
@@ -199,6 +209,9 @@ export default function DuelArea({
 
     if (isCorrectPokemonName(typedAnswer, currentPokemon.name)) {
       onUnlockPokemon(currentPokemon.id);
+      if (!newlyUnlockedRef.current.includes(currentPokemon.id)) {
+        newlyUnlockedRef.current.push(currentPokemon.id);
+      }
       setPokedexStats((prev) => ({ ...prev, correct: prev.correct + 1 }));
       setTypedAnswer("");
       setHeardText("");
@@ -226,11 +239,20 @@ export default function DuelArea({
     setSpeechError(null);
     setTypedAnswer("");
     setCurrentPokemon(getNextPokemonFromPool());
+    setPassFlashUntil(Date.now() + 5000); // design 07c — 5s red flash
 
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
+
+  // Tick re-render every 250ms so isPassFlash flips off without user input.
+  useEffect(() => {
+    if (passFlashUntil === 0) return;
+    if (passFlashUntil <= Date.now()) return;
+    const t = setTimeout(() => setPassFlashUntil((v) => (v <= Date.now() ? 0 : v)), passFlashUntil - Date.now() + 50);
+    return () => clearTimeout(t);
+  }, [passFlashUntil]);
 
   // --- State changes between active participants ---
   const switchToOpponent = () => {
@@ -314,161 +336,227 @@ export default function DuelArea({
       onDuelFinish(winner, {
         userCorrect: pokedexStats.correct,
         userPassed: pokedexStats.passed,
-        timerRemaining: Math.max(0, playerTime)
+        timerRemaining: Math.max(0, playerTime),
+        lastPokemonId: currentPokemon?.id ?? null,
+        newlyUnlocked: [...newlyUnlockedRef.current]
       });
     }, 1500);
   };
 
   const opponentLabel = `${t.botLabel} ${opponent.number}`;
+  const lowTime = playerTime < 10 && activePlayer === "player";
+  const dangerMode = lowTime || isPassFlash;
 
   return (
-    <div className="w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between bg-[#FFF4DF] border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa">
+    <div
+      className={`w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa transition-colors duration-300 ${
+        dangerMode ? "bg-[#FFE3DE]" : "bg-[#FFF4DF]"
+      }`}
+    >
 
-      {/* Background soft cafe glow */}
-      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-cafe-beige/35 to-transparent pointer-events-none" />
-
-      {/* Arena Title — bot label + pool size */}
-      <div className="relative pt-4 px-5 pb-2 flex justify-between items-center z-10 select-none">
-        <div className="flex flex-col text-left">
-          <span className="text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">{t.categoryLabel}</span>
-          <h2 className="text-sm font-display font-black tracking-tight text-[#5A3A2A] uppercase">
-            {opponentLabel} · {pokemonPool.length} {t.botPoolSizeLabel}
-          </h2>
-        </div>
-        <div className="bg-white-frost px-3 py-1 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
-          <span className="text-[10px] font-black text-cocoa">vs {opponentLabel}</span>
-        </div>
-      </div>
-
-      {/* --- TIMERS PANEL --- */}
-      <div className="flex border-y-2 border-[#5A3A2A] h-16 bg-[#F2D5A7] overflow-hidden relative z-10 select-none">
-        {/* PLAYER TIME BLOCK */}
-        <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-300 ${
-          activePlayer === "player"
-            ? "bg-[#FFFFFF] border-r-2 border-[#5A3A2A]"
-            : "border-r-2 border-[#5A3A2A] bg-[#FFF4DF]"
-        }`}
-        style={{ opacity: 1.0 }}>
-          <span className={`text-[9.5px] font-black uppercase tracking-wider ${
-            activePlayer === "player" ? "text-[#24456B]" : "text-[#8C6D58]"
-          }`}>{t.yourTimeLabel}</span>
-          <div className={`text-2xl font-mono font-black tracking-tighter ${
-            playerTime < 10
-              ? "text-[#E95050] animate-pulse"
-              : activePlayer === "player"
-              ? "text-[#24456B]"
-              : "text-[#5A3A2A]"
-          }`}>
-            {playerTime.toFixed(1)}s
-          </div>
-          {activePlayer === "player" && (
-            <div className="h-1 w-full bg-[#24456B] mt-0.5 animate-pulse" />
-          )}
-        </div>
-
-        {/* OPPONENT TIME BLOCK */}
-        <div className={`flex-1 flex flex-col items-center justify-center transition-all duration-300 ${
-          activePlayer === "opponent"
-            ? "bg-[#FFFFFF]"
-            : "bg-[#FFF4DF]"
-        }`}
-        style={{ opacity: 1.0 }}>
-          <span className={`text-[9.5px] font-black uppercase tracking-wider ${
-            activePlayer === "opponent" ? "text-[#24456B]" : "text-[#8C6D58]"
-          }`}>{t.opponentTimeLabel} ({opponent.avatar})</span>
-          <div className={`text-2xl font-mono font-black tracking-tighter ${
-            opponentTime < 10 && activePlayer === "opponent"
-              ? "text-[#E95050] animate-pulse"
-              : activePlayer === "opponent"
-              ? "text-[#24456B]"
-              : "text-[#5A3A2A]"
-          }`}>
-            {opponentTime.toFixed(1)}s
-          </div>
-          {activePlayer === "opponent" && (
-            <div className="h-1 w-full bg-[#24456B] mt-0.5 animate-pulse" />
-          )}
-        </div>
-      </div>
-
-      {/* --- ACTIVE POKÉMON IMAGE PANEL --- */}
-      <div className="flex-1 flex flex-col items-center justify-center py-4 px-3 bg-white border-2 border-[#5A3A2A] rounded-[20px] mx-4 my-3 relative min-h-0 select-none shadow-[0_3px_0_#5A3A2A]">
+      {/* --- TIMERS ROW (two cards side-by-side, design 07) --- */}
+      <div className="grid grid-cols-2 gap-2 px-3 pt-3 z-10 select-none">
+        {/* Player timer */}
         <div
-          className="rounded-full bg-cream-base/15 flex items-center justify-center relative border-2 border-[#5A3A2A] shadow-[0_3px_0_#5A3A2A] shrink-1 object-contain fluid-badge-container"
-          style={{
-            aspectRatio: "1/1"
-          }}
+          className={`rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
+            dangerMode ? "bg-[#FFD0CA]" : activePlayer === "player" ? "bg-[#FFD84D]" : "bg-white-frost"
+          }`}
         >
-          <div className="absolute inset-0 rounded-full bg-cafe-beige/10" />
+          <div className="flex items-center justify-between">
+            <span
+              className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+                isPassFlash
+                  ? "bg-[#E95050] text-white border-[#5A3A2A]"
+                  : lowTime
+                  ? "bg-[#E95050] text-white border-[#5A3A2A] animate-pulse"
+                  : "bg-[#5A3A2A] text-[#FFD84D] border-[#5A3A2A]"
+              }`}
+            >
+              {isPassFlash ? `× ${t.duelPasFlashPill}` : lowTime ? `⚠ ${t.duelHurryPill}` : t.duelYourTurnPill}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-[#5A3A2A]/80">{t.yourTimeLabel}</span>
+            <span
+              className={`font-mono font-black ml-auto text-lg tracking-tighter ${
+                lowTime ? "text-[#E95050]" : "text-[#24456B]"
+              }`}
+            >
+              {playerTime.toFixed(1)}<span className="text-[10px] opacity-70">s</span>
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-white border border-[#5A3A2A] mt-1 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-150 ${
+                lowTime ? "bg-[#E95050]" : "bg-[#24456B]"
+              }`}
+              style={{ width: `${Math.max(0, Math.min(100, (playerTime / 45) * 100))}%` }}
+            />
+          </div>
+        </div>
 
-          {currentPokemon ? (
-            <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
-              <img
-                src={getPokemonImageUrl(currentPokemon.id)}
-                alt="Pokemon"
-                referrerPolicy="no-referrer"
-                className={`h-4/5 w-4/5 object-contain select-none transition-all duration-500 ${
-                  activePlayer === "opponent" && !opponentGuessText
-                    ? "brightness-0 opacity-40 grayscale"
-                    : ""
-                }`}
-                style={{
-                  filter: activePlayer === "opponent" && !opponentGuessText ? "none" : "drop-shadow(0 4px 6px rgba(90,58,42,0.15))",
-                }}
-              />
+        {/* Opponent timer */}
+        <div
+          className={`rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
+            activePlayer === "opponent" ? "bg-[#FFD84D]" : "bg-white-frost"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#A9E6CF] text-[#5A3A2A] border border-[#5A3A2A] truncate max-w-[100px]">
+              ✓ {opponentLabel}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-[#5A3A2A]/80">{opponent.avatar}</span>
+            <span className="font-mono font-black ml-auto text-lg tracking-tighter text-[#5A3A2A]">
+              {opponentTime.toFixed(1)}<span className="text-[10px] opacity-70">s</span>
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-white border border-[#5A3A2A] mt-1 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#5A3A2A]/40 transition-all duration-150"
+              style={{ width: `${Math.max(0, Math.min(100, (opponentTime / 45) * 100))}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* --- RECOGNIZE-POKÉMON CARD --- */}
+      <div className="flex-1 flex flex-col px-3 pt-3 min-h-0 relative z-10">
+        <div className="flex-1 flex flex-col rounded-3xl border-2 border-[#5A3A2A] bg-white shadow-[0_4px_0_#5A3A2A] p-3 min-h-0">
+          {/* Header pill row */}
+          <div className="flex items-center justify-between shrink-0">
+            <span className="font-display font-black text-[10px] uppercase tracking-wider text-white bg-[#1B2840] border-2 border-[#5A3A2A] px-2.5 py-0.5 rounded-full">
+              ● {t.duelRecognizeTitle}
+            </span>
+            <span className="font-mono font-black text-[10px] text-[#5A3A2A] bg-[#FFD84D] border-2 border-[#5A3A2A] px-2 py-0.5 rounded-md">
+              #{currentPokemon ? String(currentPokemon.id).padStart(3, "0") : "???"} ?
+            </span>
+          </div>
+
+          {/* Subtitle hint */}
+          <p className="shrink-0 text-[10px] text-center text-[#5A3A2A]/70 font-bold mt-1.5 leading-snug">
+            {t.duelRecognizeHintPrefix}{" "}
+            <span className="text-[#24456B] underline font-mono">
+              {currentPokemon ? currentPokemon.name : "Pikachu"}
+            </span>
+          </p>
+
+          {/* Image circle */}
+          <div className="flex-1 flex items-center justify-center min-h-0 my-2">
+            <div className="relative rounded-full border-2 border-dashed border-[#5A3A2A]/50 bg-[#FFF4DF]/50 flex items-center justify-center"
+              style={{ width: "min(60%, 200px)", aspectRatio: "1/1" }}
+            >
+              {currentPokemon ? (
+                <img
+                  src={getPokemonImageUrl(currentPokemon.id)}
+                  alt="Pokemon"
+                  referrerPolicy="no-referrer"
+                  className={`h-4/5 w-4/5 object-contain select-none transition-all duration-500 ${
+                    activePlayer === "opponent" && !opponentGuessText ? "brightness-0 opacity-40 grayscale" : ""
+                  }`}
+                  style={{ filter: activePlayer === "opponent" && !opponentGuessText ? "none" : "drop-shadow(0 4px 6px rgba(90,58,42,0.18))" }}
+                />
+              ) : (
+                <div className="animate-spin h-8 w-8 rounded-full border-4 border-cafe-beige border-t-[#5A3A2A]" />
+              )}
               {activePlayer === "opponent" && opponentGuessText && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="bg-lemon-yellow text-pokemon-navy border-2 border-pokemon-navy px-4 py-1.5 rounded-full font-display font-black text-xs uppercase tracking-wider z-20 animate-bounce shadow-[0_4px_0_#24456B]">
+                  <div className="bg-[#FFD84D] text-[#24456B] border-2 border-[#24456B] px-3 py-1 rounded-full font-display font-black text-xs uppercase tracking-wider z-20 animate-bounce shadow-[0_3px_0_#24456B]">
                     {opponentGuessText === t.passNotification ? t.passNotification : `${opponentGuessText}!`}
                   </div>
                 </div>
               )}
             </div>
-          ) : (
-            <div className="animate-spin h-8 w-8 rounded-full border-4 border-cafe-beige border-t-[#5A3A2A]" />
+          </div>
+
+          {/* Speech-error / hint banner */}
+          {speechError && (
+            <div className="shrink-0 text-center">
+              <p className="text-[10px] text-[#5A3A2A] font-bold inline-flex items-center justify-center gap-1.5 bg-[#FF7A62]/15 border-2 border-[#5A3A2A] py-1 px-3 rounded-full">
+                <AlertCircle className="h-3 w-3 text-coral shrink-0" />
+                <span className="truncate max-w-[230px]">{speechError}</span>
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Status indicator pill */}
-        <div className="mt-2.5 text-center z-10">
-          <div className="inline-flex items-center gap-2 bg-white-frost px-3 py-1 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
-            <div className={`w-2.5 h-2.5 rounded-full ${activePlayer === "player" ? "bg-soft-mint animate-pulse border border-[#5A3A2A]" : "bg-lemon-yellow animate-pulse border border-[#5A3A2A]"}`} />
-            <span className="text-[10px] font-black uppercase tracking-wider text-cocoa">
-              {activePlayer === "player" ? t.voiceReport : t.thinkingReport}
-            </span>
-          </div>
-        </div>
-
-        {/* Time Alert banner */}
-        {activePlayer === "player" && playerTime < 10 && (
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[10px] bg-[#FF7A62] text-[#5A3A2A] border-2 border-[#5A3A2A] px-3 py-1 rounded-full font-black tracking-wider animate-pulse shadow-sm">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>{t.quickSpurt}</span>
-          </div>
+        {/* Mic round button — overlaps card bottom edge */}
+        {activePlayer === "player" && (
+          <button
+            type="button"
+            onClick={startSpeechRecognition}
+            className={`absolute left-1/2 -translate-x-1/2 -bottom-7 h-14 w-14 rounded-full flex items-center justify-center transition active:scale-95 border-2 border-[#5A3A2A] z-20 cursor-pointer ${
+              isListening
+                ? "bg-[#E95050] text-white scale-110 shadow-[0_4px_0_#5A3A2A]"
+                : "bg-[#E95050] text-white hover:bg-[#FF6464] shadow-[0_4px_0_#5A3A2A]"
+            }`}
+            title={t.voiceReport}
+          >
+            {isListening ? (
+              <span className="flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+              </span>
+            ) : (
+              <div className="flex flex-col items-center">
+                <Mic className="h-4 w-4 text-white" />
+                <span className="text-[7px] font-black tracking-widest text-white/90 uppercase mt-0.5">
+                  {t.speakBtn}
+                </span>
+              </div>
+            )}
+          </button>
         )}
       </div>
 
-      {/* --- INSTRUCTIONS & ERRORS FEEDBACK --- */}
-      <div className="h-7 text-center flex items-center justify-center px-4 relative z-10 select-none">
-        {speechError ? (
-          <p className="text-[11px] text-cocoa font-bold flex items-center justify-center gap-1.5 bg-[#FF7A62]/15 border-2 border-[#5A3A2A] py-1 px-3.5 rounded-full">
-            <AlertCircle className="h-3.5 w-3.5 text-coral shrink-0" />
-            <span className="truncate max-w-[280px]">{speechError}</span>
-          </p>
-        ) : activePlayer === "player" ? (
-          <p className="text-[11px] text-cocoa/70 font-bold">
-            {t.speechPrompt} <span className="text-[#24456B] underline font-mono">Pikachu</span>
-          </p>
-        ) : (
-          null
-        )}
-      </div>
-
-      {/* --- PLAYER ACTIONS PANEL --- */}
-      <div className="p-3 sm:p-4 bg-cafe-beige border-t-2 border-[#5A3A2A] z-10">
+      {/* --- INPUT ROW + PASUJ BAR --- */}
+      <div className="shrink-0 mt-8 z-10">
         {activePlayer === "player" ? (
-          <form onSubmit={handlePlayerSubmit} className="space-y-3">
-            <div>
+          <form onSubmit={handlePlayerSubmit} className="px-3">
+            {/* Autocomplete suggestions (design 07b) — only on easy/medium bots, after 2+ chars */}
+            {(() => {
+              if (opponent.difficulty === "hard") return null;
+              if (typedAnswer.trim().length < 2) return null;
+              const term = typedAnswer.trim().toLowerCase();
+              const matches = POKEMON_LIST.filter((p) => p.name.toLowerCase().startsWith(term)).slice(0, 3);
+              if (matches.length === 0) return null;
+              return (
+                <div className="flex items-center gap-1.5 mb-1.5 overflow-x-auto scrollbar-none">
+                  {matches.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setTypedAnswer(p.name);
+                        if (inputRef.current) inputRef.current.focus();
+                      }}
+                      className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] cursor-pointer transition ${
+                        i === 0 ? "bg-[#FFD84D] hover:bg-[#FFE26D]" : "bg-white hover:bg-[#FFF4DF]"
+                      }`}
+                    >
+                      <img
+                        src={getPokemonImageUrl(p.id)}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-4 w-4 object-contain"
+                      />
+                      <span className="text-[10px] font-display font-black tracking-tight uppercase text-[#5A3A2A]">
+                        <span className="underline decoration-[#E95050]">{p.name.slice(0, term.length).toUpperCase()}</span>
+                        <span>{p.name.slice(term.length).toUpperCase()}</span>
+                      </span>
+                      {i === 0 && (
+                        <span className="bg-[#1B2840] text-[#FFD84D] text-[7px] font-black tracking-widest px-1 py-0.5 rounded-sm uppercase">
+                          TAB
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -478,6 +566,17 @@ export default function DuelArea({
                 onChange={(e) => {
                   setTypedAnswer(e.target.value);
                   if (speechError) setSpeechError(null);
+                }}
+                onKeyDown={(e) => {
+                  // TAB selects first autocomplete suggestion (easy/medium only)
+                  if (e.key !== "Tab") return;
+                  if (opponent.difficulty === "hard") return;
+                  const term = typedAnswer.trim().toLowerCase();
+                  if (term.length < 2) return;
+                  const first = POKEMON_LIST.find((p) => p.name.toLowerCase().startsWith(term));
+                  if (!first) return;
+                  e.preventDefault();
+                  setTypedAnswer(first.name);
                 }}
                 inputMode={isManualMode ? "text" : "none"}
                 readOnly={!isManualMode}
@@ -489,70 +588,41 @@ export default function DuelArea({
                     }, 50);
                   }
                 }}
-                className="w-full bg-white-frost border-2 border-[#5A3A2A] focus:border-[#24456B] rounded-2xl py-2.5 px-4 text-xs sm:text-sm font-extrabold text-cocoa placeholder:text-cocoa/40 transition-all outline-none shadow-[0_3px_0_#5A3A2A] text-center"
+                className="flex-1 bg-white border-2 border-[#5A3A2A] focus:border-[#24456B] rounded-2xl py-2.5 px-3 text-xs font-extrabold text-cocoa placeholder:text-cocoa/40 outline-none shadow-[0_2px_0_#5A3A2A]"
               />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 items-center">
-              {/* PAS BUTTON */}
-              <button
-                type="button"
-                onClick={handlePlayerPass}
-                className="h-14 rounded-2xl bg-white-frost text-cocoa border-2 border-[#5A3A2A] shadow-[0_4px_0_#5A3A2A] active:translate-y-1 active:shadow-none hover:bg-[#FFF4DF]/40 font-black uppercase text-[10px] flex flex-col items-center justify-center leading-tight transition shrink-0 cursor-pointer"
-              >
-                <span>{t.passBtn}</span>
-                <span className="text-[9px] text-coral font-black mt-0.5">{t.passPenalty}</span>
-              </button>
-
-              {/* MICROPHONE */}
-              <button
-                type="button"
-                onClick={startSpeechRecognition}
-                className={`h-14 w-14 mx-auto rounded-full flex flex-col items-center justify-center transition duration-200 active:scale-95 relative cursor-pointer border-2 border-[#5A3A2A] ${
-                  isListening
-                    ? "bg-[#FF7A62] text-white scale-105 shadow-[0_4px_0_#5A3A2A]"
-                    : "bg-[#24456B] text-white hover:bg-blue-800 shadow-[0_4px_0_#24456B]"
-                }`}
-                title={t.voiceReport}
-              >
-                {isListening ? (
-                  <>
-                    <div className="absolute inset-x-0 bottom-1.5 text-[7px] font-black tracking-widest text-white/95 uppercase animate-pulse">
-                      {t.speechListening}
-                    </div>
-                    <span className="flex h-2 w-2 relative -top-1">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-5 w-5 text-white" />
-                    <span className="text-[7px] font-black tracking-widest text-[#FFD84D] uppercase mt-0.5">
-                      {t.speakBtn}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {/* SUBMIT BUTTON */}
               <button
                 type="submit"
-                className="h-14 bg-[#FFD84D] text-[#24456B] hover:bg-[#FFE26D] border-2 border-[#24456B] transition font-black rounded-2xl shadow-[0_4px_0_#24456B] active:translate-y-1 active:shadow-none uppercase tracking-tight text-[10px] flex flex-col items-center justify-center gap-0.5 shrink-0 cursor-pointer text-center"
+                className="h-10 w-10 shrink-0 bg-[#FFD84D] text-[#24456B] border-2 border-[#5A3A2A] rounded-2xl shadow-[0_2px_0_#5A3A2A] active:translate-y-0.5 active:shadow-none flex items-center justify-center cursor-pointer"
+                title={t.sendBtn}
               >
-                <span>{t.sendBtn}</span>
-                <CornerDownLeft className="h-3.5 w-3.5 stroke-[3] text-pokemon-navy" />
+                <ArrowRight className="h-4 w-4 stroke-[3]" />
               </button>
             </div>
           </form>
         ) : (
-          /* Opponent Ticking UI block */
-          <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#FFF4DF] py-4 text-center text-cocoa text-xs flex flex-col items-center justify-center gap-1.5 min-h-[90px] shadow-[0_2px_0_#5A3A2A]">
-            <div className="h-5 w-5 rounded-full border-2 border-cafe-beige border-t-[#24456B] animate-spin" />
-            <span className="font-extrabold text-[#5A3A2A] text-[11px]">{t.opponentTurnReport}</span>
-            <span className="text-[9px] text-[#24456B] opacity-90 uppercase font-black tracking-widest">{t.restTimeReport}</span>
+          <div className="px-3">
+            <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white py-3 text-center text-cocoa text-xs flex flex-col items-center justify-center gap-1 shadow-[0_2px_0_#5A3A2A]">
+              <div className="h-4 w-4 rounded-full border-2 border-cafe-beige border-t-[#24456B] animate-spin" />
+              <span className="font-extrabold text-[#5A3A2A] text-[10px]">{t.opponentTurnReport}</span>
+            </div>
           </div>
         )}
+
+        {/* Dolny czarny pasek PASUJ */}
+        <button
+          type="button"
+          onClick={handlePlayerPass}
+          disabled={activePlayer !== "player"}
+          className={`mt-2 w-full border-t-2 border-[#5A3A2A] py-2.5 px-4 font-display font-black text-xs uppercase tracking-widest text-white transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
+            dangerMode ? "bg-[#E95050]" : "bg-[#1B2840] hover:bg-[#243B5C]"
+          }`}
+        >
+          {dangerMode && <AlertTriangle className="h-3.5 w-3.5" />}
+          <span>{t.passBtn}</span>
+          <span className="text-[10px] font-black bg-[#FFD84D] text-[#5A3A2A] px-2 py-0.5 rounded-md border border-[#5A3A2A]">
+            {t.passPenalty}
+          </span>
+        </button>
       </div>
 
     </div>
