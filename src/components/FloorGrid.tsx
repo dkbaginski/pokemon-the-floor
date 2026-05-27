@@ -1,5 +1,6 @@
 import { GridCell, Bot, BOTS, PLAYER_PROFILE } from "../bots";
 import { Swords } from "lucide-react";
+import { SwordsCrossedIcon, PadlockIcon } from "./icons";
 import { getPokemonImageUrl } from "../pokemonData";
 
 // Short label for a tile — used inside grid cells and in the duel header.
@@ -20,7 +21,14 @@ interface FloorGridProps {
 
 interface ComponentInfo {
   ownerId: string;
+  // Centroid cell — where the polygon's "GRACZ N" / "TY · ASH" label renders.
   anchorCellId: number;
+  // Visual top-right corner cell — where corner badges (lock / red attack)
+  // render. For a 2-wide horizontal polygon the centroid would be the LEFT
+  // cell, which would put a `-top-1 -right-1` badge on the seam between the
+  // two cells; using the actual top-right corner keeps badges on the outer
+  // edge of the merged shape.
+  cornerCellId: number;
   size: number;
 }
 
@@ -92,9 +100,18 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
       const dB = Math.abs(best.row - avgRow) + Math.abs(best.col - avgCol);
       return dC < dB ? c : best;
     }, cells[0]);
+    // Top-right corner cell: minimise row first (topmost), then maximise col
+    // (rightmost among the topmost). For an L-shape that flares right at the
+    // top, this picks the cell at the far-right tip of the top run.
+    const corner = cells.reduce((best, c) => {
+      if (c.row < best.row) return c;
+      if (c.row > best.row) return best;
+      return c.col > best.col ? c : best;
+    }, cells[0]);
     const info: ComponentInfo = {
       ownerId: start.currentOwnerId,
       anchorCellId: anchor.id,
+      cornerCellId: corner.id,
       size: cells.length
     };
     for (const c of cells) result.set(c.id, info);
@@ -363,15 +380,22 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
 
-                {/* Difficulty pin — small color-coded dot top-right of bot tiles */}
-                {item.isAnchor && !isPlayerTile && ownerBot && (
-                  <div
-                    className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-[#5A3A2A] pointer-events-none"
-                    style={{
-                      backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
-                      opacity: isLocked ? 0.4 : 1
-                    }}
-                  />
+                {/* Corner badges — render from the polygon's visual top-right
+                    cell (not the label centroid) so that on a 2-wide merged
+                    polygon the badge sits on the outer edge instead of the
+                    seam between cells. Lock for out-of-range tiles, red
+                    crossed-swords for adjacent (attackable) tiles. Mutually
+                    exclusive: a polygon is either reachable or it isn't. */}
+                {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && isLocked && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center pointer-events-none z-20">
+                    <PadlockIcon size={10} color="#5A3A2A" strokeWidth={2.5} />
+                  </div>
+                )}
+
+                {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && item.isAdjacent && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#E95050] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center pointer-events-none z-20">
+                    <SwordsCrossedIcon size={10} color="#FFFFFF" strokeWidth={2.5} />
+                  </div>
                 )}
 
                 {/* Difficulty bar — only on the bottom edge of a bot polygon.

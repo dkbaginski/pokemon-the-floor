@@ -45,7 +45,7 @@ export const translations = {
     boardAttacksLabel: "ATAKI",
     boardLegendMy: "MOJE",
     boardLegendAvailable: "DOSTĘPNE",
-    boardLegendLocked: "ZABLOK.",
+    boardLegendLocked: "ZABLOKOWANE",
     boardPlayerNick: "TY · ASH",
     // VS challenge (design 06)
     vsHeaderMetaLeft: "POJEDYNEK · POLE",

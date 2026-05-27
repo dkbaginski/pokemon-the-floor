@@ -8,7 +8,6 @@ import TutorialOverlay from "./components/TutorialOverlay";
 import { translations } from "./translations";
 import {
   Trophy,
-  RotateCcw,
   Sparkles,
   HelpCircle,
   BookOpen,
@@ -17,9 +16,19 @@ import {
   ShieldCheck,
   Activity,
   ChevronRight,
-  History,
   X
 } from "lucide-react";
+import {
+  NavBoardIcon,
+  NavPokedexIcon,
+  NavHelpIcon,
+  PokeBallLogoIcon,
+  GlobeIcon,
+  ClockRewindIcon,
+  ResetIcon,
+  MapAtlasIcon,
+  SwordsCrossedIcon
+} from "./components/icons";
 
 type ScreenState = "start" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
 
@@ -478,43 +487,44 @@ export default function App() {
             setShowPokedex(false);
             setShowHelp(false);
           }}
-          className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all text-cocoa"
+          className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
           title={language === "pl" ? "Powrót do menu głównego" : "Back to main menu"}
         >
-          <div className="bg-[#FFD84D] text-[#24456B] font-black text-[11px] px-2.5 py-1 rounded-[12px] tracking-tight uppercase border border-cocoa shadow-sm">
-            POKÉ
+          <div className="bg-[#1B2840] text-white font-black text-[11px] pl-1 pr-2.5 py-1 rounded-full tracking-tight uppercase italic border-2 border-[#1B2840] shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5">
+            <PokeBallLogoIcon size={16} ink="#1B2840" red="#DC2630" />
+            <span>POKÉ</span>
           </div>
           <span className="font-display font-black tracking-tight text-xs text-[#5A3A2A] uppercase italic">THE FLOOR</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => changeLanguage(language === "pl" ? "en" : "pl")}
-            className="flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-white-frost border-2 border-cocoa/30 hover:bg-cafe-beige text-[10px] sm:text-xs font-black tracking-wider uppercase transition cursor-pointer text-cocoa"
+            className="flex items-center justify-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] text-[10px] sm:text-xs font-black tracking-wider uppercase transition cursor-pointer text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]"
             title={language === "pl" ? "Zmień na angielski" : "Switch to Polish"}
           >
-            <span>🌐</span>
-            <span className="font-mono text-[9px] sm:text-[10px]">{language === "pl" ? "PL" : "EN"}</span>
+            <GlobeIcon size={14} color="#24456B" strokeWidth={2.2} />
+            <span className="font-mono text-[10px] tracking-wider">{language === "pl" ? "PL" : "EN"}</span>
           </button>
 
           {showHeaderActions && (
             <button
               onClick={() => setShowBattleLog(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-white-frost border-2 border-cocoa/30 px-3 py-1.5 text-xs font-bold text-cocoa hover:bg-cafe-beige transition cursor-pointer"
+              className="flex items-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] transition cursor-pointer shadow-[0_2px_0_#5A3A2A]"
               title={language === "pl" ? "Historia walk" : "Battle history"}
             >
-              <History className="h-3.5 w-3.5 text-[#24456B]" />
-              <span className="text-cocoa text-[10px] uppercase tracking-widest font-black">{t.logiBtn}</span>
+              <ClockRewindIcon size={14} color="#24456B" strokeWidth={2.2} />
+              <span className="text-[#5A3A2A] text-[10px] uppercase tracking-widest font-black">{t.logiBtn}</span>
             </button>
           )}
 
           {showHeaderActions && (
             <button
               onClick={handleFullReset}
-              className="p-1.5 rounded-xl bg-white-frost border-2 border-cocoa/30 hover:bg-cafe-beige text-cocoa hover:text-red-500 transition cursor-pointer"
+              className="h-8 w-8 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] hover:text-red-500 transition cursor-pointer flex items-center justify-center shadow-[0_2px_0_#5A3A2A]"
               title={language === "pl" ? "Resetuj grę" : "Reset game"}
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <ResetIcon size={14} color="#5A3A2A" strokeWidth={2.2} />
             </button>
           )}
         </div>
@@ -657,39 +667,49 @@ export default function App() {
         {screen === "board" && (
           <div className="h-full flex flex-col justify-between pb-2 gap-3">
 
-            {/* Conquest banner — title + round + progress + attacks pill */}
-            <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] px-3 py-2 shadow-[0_3px_0_#5A3A2A] select-none">
-              <div className="flex items-center justify-between mb-1.5">
+            {/* Conquest banner — navy frame + white inner card (design 02) */}
+            <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#1B2840] p-2 shadow-[0_3px_0_#5A3A2A] select-none">
+              {/* Top row — title + round (on navy) */}
+              <div className="flex items-center justify-between px-1 pb-1.5">
                 <div className="flex items-center gap-1.5">
-                  <BookOpen className="h-3.5 w-3.5 text-[#24456B] shrink-0" />
-                  <span className="font-display font-black text-[11px] uppercase tracking-wider italic text-[#5A3A2A]">
+                  <MapAtlasIcon size={14} color="#FFD84D" strokeWidth={2} />
+                  <span className="font-display font-black text-[11px] uppercase tracking-wider italic text-[#FFD84D]">
                     {t.boardConquestTitle}
                   </span>
                 </div>
-                <span className="font-mono font-black text-[10px] text-[#5A3A2A]/70">
+                <span className="font-mono font-black text-[10px] text-[#FFD84D]/80 tracking-wider">
                   {t.boardRoundLabel}{String(round).padStart(2, "0")}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="font-mono font-black text-base text-[#5A3A2A] leading-none">
-                    {playerTerritorySize}<span className="text-[#5A3A2A]/50 text-xs">/25</span>
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-[#24456B] leading-tight">
-                    {t.boardOwnFieldsCounterLabel}
-                  </span>
+
+              {/* Inner white card — counter + ATAKI pill + progress pips */}
+              <div className="rounded-xl bg-white border-2 border-[#5A3A2A] px-2.5 py-1.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-1.5 min-w-0">
+                    <span className="font-mono font-black text-lg text-[#5A3A2A] leading-none">
+                      {playerTerritorySize}<span className="text-[#5A3A2A]/50 text-sm">/25</span>
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#24456B] leading-tight truncate">
+                      {t.boardOwnFieldsCounterLabel}
+                    </span>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1 bg-[#FFD84D] text-[#1B2840] px-2 py-0.5 rounded-full border-2 border-[#1B2840] shadow-[0_2px_0_#1B2840]">
+                    <SwordsCrossedIcon size={12} color="#1B2840" strokeWidth={2.2} />
+                    <span className="font-display font-black text-[10px] tracking-wider">
+                      {attackableCount} {t.boardAttacksLabel}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 h-2 rounded-full bg-white border-2 border-[#5A3A2A] overflow-hidden">
-                  <div
-                    className="h-full bg-[#24456B] transition-all duration-500"
-                    style={{ width: `${(playerTerritorySize / 25) * 100}%` }}
-                  />
-                </div>
-                <div className="shrink-0 flex items-center gap-1 bg-[#5A3A2A] text-[#FFD84D] px-2 py-0.5 rounded-full border-2 border-[#5A3A2A]">
-                  <Swords className="h-3 w-3" />
-                  <span className="font-display font-black text-[10px] tracking-wider">
-                    {attackableCount} {t.boardAttacksLabel}
-                  </span>
+                {/* 25 progress pips — yellow filled for owned, hollow for the rest */}
+                <div className="flex items-center gap-[3px]">
+                  {Array.from({ length: 25 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`flex-1 h-2 rounded-[3px] border-[1.5px] border-[#5A3A2A] ${
+                        i < playerTerritorySize ? "bg-[#FFD84D]" : "bg-white"
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -1516,59 +1536,58 @@ export default function App() {
         </div>
       )}
 
-      {screen !== "duel" && screen !== "start" && (
-        <footer
-          className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2.5 px-6 grid grid-cols-3 justify-items-center items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
-          style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
-        >
-          <button
-            onClick={() => {
-              setScreen("board");
-              setDefenseMode(false);
-              setShowPokedex(false);
-              setShowHelp(false);
-            }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
-              (screen === "board" || screen === "start") && !showPokedex && !showHelp
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
-                : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
-            }`}
+      {screen !== "duel" && screen !== "start" && (() => {
+        const navPlayActive = (screen === "board" || screen === "start") && !showPokedex && !showHelp;
+        const navItemBase = "flex items-center gap-1.5 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none h-10 rounded-2xl border-2";
+        const navActive = "bg-[#FFD84D] text-[#1B2840] border-[#1B2840] shadow-[0_3px_0_#1B2840] px-3.5";
+        const navInactive = "bg-transparent border-transparent text-[#5A3A2A]/55 hover:text-cocoa w-10 justify-center";
+        const activeColor = "#1B2840";
+        const inactiveColor = "rgba(90,58,42,0.55)";
+        return (
+          <footer
+            className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2 px-6 flex justify-around items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
+            style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
           >
-            <Swords className="h-[18px] w-[18px]" />
-            <span>{t.navPlay}</span>
-          </button>
+            <button
+              onClick={() => {
+                setScreen("board");
+                setDefenseMode(false);
+                setShowPokedex(false);
+                setShowHelp(false);
+              }}
+              className={`${navItemBase} ${navPlayActive ? navActive : navInactive}`}
+              title={t.navPlay}
+            >
+              <NavBoardIcon size={22} color={navPlayActive ? activeColor : inactiveColor} />
+              {navPlayActive && <span>{t.navPlay}</span>}
+            </button>
 
-          <button
-            onClick={() => {
-              setShowPokedex(true);
-              setShowHelp(false);
-            }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
-              showPokedex
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
-                : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
-            }`}
-          >
-            <BookOpen className="h-[18px] w-[18px]" />
-            <span>{t.navPokedex}</span>
-          </button>
+            <button
+              onClick={() => {
+                setShowPokedex(true);
+                setShowHelp(false);
+              }}
+              className={`${navItemBase} ${showPokedex ? navActive : navInactive}`}
+              title={t.navPokedex}
+            >
+              <NavPokedexIcon size={22} color={showPokedex ? activeColor : inactiveColor} />
+              {showPokedex && <span>{t.navPokedex}</span>}
+            </button>
 
-          <button
-            onClick={() => {
-              setShowHelp(true);
-              setShowPokedex(false);
-            }}
-            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none py-1.5 px-4 rounded-xl border-2 ${
-              showHelp
-                ? "bg-[#FFD84D] text-[#24456B] border-[#24456B] shadow-[0_2px_0_#24456B]"
-                : "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-cocoa"
-            }`}
-          >
-            <HelpCircle className="h-[18px] w-[18px]" />
-            <span>{t.navHelp}</span>
-          </button>
-        </footer>
-      )}
+            <button
+              onClick={() => {
+                setShowHelp(true);
+                setShowPokedex(false);
+              }}
+              className={`${navItemBase} ${showHelp ? navActive : navInactive}`}
+              title={t.navHelp}
+            >
+              <NavHelpIcon size={20} color={showHelp ? activeColor : inactiveColor} />
+              {showHelp && <span>{t.navHelp}</span>}
+            </button>
+          </footer>
+        );
+      })()}
 
       {/* First-run tutorial (design 11) — only on board, when flag unseen and grid is pristine */}
       {!tutorialSeen && screen === "board" && playerTerritorySize === 1 && !showPokedex && !showHelp && !showBattleLog && !showResetConfirm && (
