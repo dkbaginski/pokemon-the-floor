@@ -449,12 +449,16 @@ export default function DuelArea({
             </span>
           </div>
 
-          {/* Subtitle hint — static examples so the current pokemon name is never spoiled */}
+          {/* Subtitle hint — static examples so the current pokemon name is never spoiled.
+              Each Pokémon name is its own highlighted span; the comma between them
+              stays in body cocoa colour for visual separation. The hint wraps onto
+              two lines on narrow screens via the explicit <br/>. */}
           <p className="shrink-0 text-[10px] text-center text-[#5A3A2A]/70 font-bold mt-1.5 leading-snug">
-            {t.duelRecognizeHintPrefix}{" "}
-            <span className="text-[#24456B] underline font-mono">
-              Pikachu, Charizard
-            </span>
+            {t.duelRecognizeHintPrefix}
+            <br />
+            <span className="text-[#24456B] underline font-mono">Pikachu</span>
+            <span>, </span>
+            <span className="text-[#24456B] underline font-mono">Charizard</span>
           </p>
 
           {/* Image circle */}

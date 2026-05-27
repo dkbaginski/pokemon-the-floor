@@ -92,8 +92,8 @@ export const translations = {
     loseStatAccuracy: "CELNOŚĆ",
     loseStuckOnLabel: "Utknąłeś na",
     loseCoachTipPill: "● PORADA TRENERA",
-    loseBackBtn: "WRÓĆ DO GRY",
-    loseRetryBtn: "SPRÓBUJ POJEDYNKU JESZCZE RAZ",
+    loseBackBtn: "SPRÓBUJ JESZCZE RAZ",
+    loseRetryBtn: "WRÓĆ NA PLANSZĘ",
     loseResetLink: "Zresetuj całą rozgrywkę",
     loseResetLinkParen: "utrata postępu",
     // Victory screen (design 10)
@@ -384,8 +384,8 @@ export const translations = {
     loseStatAccuracy: "ACCURACY",
     loseStuckOnLabel: "Stuck on",
     loseCoachTipPill: "● TRAINER TIP",
-    loseBackBtn: "BACK TO GAME",
-    loseRetryBtn: "TRY THE DUEL AGAIN",
+    loseBackBtn: "TRY AGAIN",
+    loseRetryBtn: "BACK TO BOARD",
     loseResetLink: "Reset the whole game",
     loseResetLinkParen: "progress lost",
     // Victory screen (design 10)
