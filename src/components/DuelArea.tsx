@@ -47,9 +47,12 @@ export default function DuelArea({
   const [opponentGuessText, setOpponentGuessText] = useState("");
   const opponentThinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // --- PAS flash (design 07c) — 5s red-mode after player passes ---
+  // --- PAS flash (design 07c) — brief red-mode after player passes ---
   const [passFlashUntil, setPassFlashUntil] = useState<number>(0);
   const isPassFlash = passFlashUntil > Date.now();
+  // `passPenaltyKey` increments on every pass so the floating "−5s" tag near
+  // the player timer remounts and replays its CSS animation each time.
+  const [passPenaltyKey, setPassPenaltyKey] = useState<number>(0);
 
   // --- References for visual timers ---
   const intervalRef = useRef<number | null>(null);
@@ -239,7 +242,8 @@ export default function DuelArea({
     setSpeechError(null);
     setTypedAnswer("");
     setCurrentPokemon(getNextPokemonFromPool());
-    setPassFlashUntil(Date.now() + 5000); // design 07c — 5s red flash
+    setPassFlashUntil(Date.now() + 450); // brief mignięcie, nie utrzymujący się czerwony stan
+    setPassPenaltyKey((k) => k + 1);
 
     if (inputRef.current) {
       inputRef.current.focus();
@@ -358,10 +362,22 @@ export default function DuelArea({
       <div className="grid grid-cols-2 gap-2 px-3 pt-3 z-10 select-none">
         {/* Player timer */}
         <div
-          className={`rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
+          className={`relative rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
             dangerMode ? "bg-[#FFD0CA]" : activePlayer === "player" ? "bg-[#FFD84D]" : "bg-white-frost"
           }`}
         >
+          {/* Pass penalty — floats up + fades out on every PAS tap.
+              Keyed by `passPenaltyKey` so each pass remounts the node and
+              replays the CSS animation. */}
+          {passPenaltyKey > 0 && (
+            <span
+              key={passPenaltyKey}
+              className="pointer-events-none absolute -top-3 right-2 z-30 animate-penalty-float font-mono font-black text-[13px] text-[#E95050] drop-shadow-[0_1px_0_#5A3A2A]"
+              aria-hidden="true"
+            >
+              −5s
+            </span>
+          )}
           <div className="flex items-center justify-between">
             <span
               className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
@@ -407,7 +423,6 @@ export default function DuelArea({
             </span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-[9px] font-black uppercase tracking-wider text-[#5A3A2A]/80">{opponent.avatar}</span>
             <span className="font-mono font-black ml-auto text-lg tracking-tighter text-[#5A3A2A]">
               {opponentTime.toFixed(1)}<span className="text-[10px] opacity-70">s</span>
             </span>
@@ -434,11 +449,11 @@ export default function DuelArea({
             </span>
           </div>
 
-          {/* Subtitle hint */}
+          {/* Subtitle hint — static examples so the current pokemon name is never spoiled */}
           <p className="shrink-0 text-[10px] text-center text-[#5A3A2A]/70 font-bold mt-1.5 leading-snug">
             {t.duelRecognizeHintPrefix}{" "}
             <span className="text-[#24456B] underline font-mono">
-              {currentPokemon ? currentPokemon.name : "Pikachu"}
+              Pikachu, Charizard
             </span>
           </p>
 
@@ -481,37 +496,12 @@ export default function DuelArea({
           )}
         </div>
 
-        {/* Mic round button — overlaps card bottom edge */}
-        {activePlayer === "player" && (
-          <button
-            type="button"
-            onClick={startSpeechRecognition}
-            className={`absolute left-1/2 -translate-x-1/2 -bottom-7 h-14 w-14 rounded-full flex items-center justify-center transition active:scale-95 border-2 border-[#5A3A2A] z-20 cursor-pointer ${
-              isListening
-                ? "bg-[#E95050] text-white scale-110 shadow-[0_4px_0_#5A3A2A]"
-                : "bg-[#E95050] text-white hover:bg-[#FF6464] shadow-[0_4px_0_#5A3A2A]"
-            }`}
-            title={t.voiceReport}
-          >
-            {isListening ? (
-              <span className="flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-              </span>
-            ) : (
-              <div className="flex flex-col items-center">
-                <Mic className="h-4 w-4 text-white" />
-                <span className="text-[7px] font-black tracking-widest text-white/90 uppercase mt-0.5">
-                  {t.speakBtn}
-                </span>
-              </div>
-            )}
-          </button>
-        )}
+        {/* Mic is no longer pinned to the bottom of the image card — it lives
+            as the primary CTA in the dolny dock below (reachable by the thumb). */}
       </div>
 
-      {/* --- INPUT ROW + PASUJ BAR --- */}
-      <div className="shrink-0 mt-8 z-10">
+      {/* --- INPUT ROW + MÓW (primary) + PASUJ (secondary) --- */}
+      <div className="shrink-0 mt-3 z-10">
         {activePlayer === "player" ? (
           <form onSubmit={handlePlayerSubmit} className="px-3">
             {/* Autocomplete suggestions (design 07b) — only on easy/medium bots, after 2+ chars */}
@@ -608,21 +598,66 @@ export default function DuelArea({
           </div>
         )}
 
-        {/* Dolny czarny pasek PASUJ */}
-        <button
-          type="button"
-          onClick={handlePlayerPass}
-          disabled={activePlayer !== "player"}
-          className={`mt-2 w-full border-t-2 border-[#5A3A2A] py-2.5 px-4 font-display font-black text-xs uppercase tracking-widest text-white transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
-            dangerMode ? "bg-[#E95050]" : "bg-[#1B2840] hover:bg-[#243B5C]"
-          }`}
-        >
-          {dangerMode && <AlertTriangle className="h-3.5 w-3.5" />}
-          <span>{t.passBtn}</span>
-          <span className="text-[10px] font-black bg-[#FFD84D] text-[#5A3A2A] px-2 py-0.5 rounded-md border border-[#5A3A2A]">
-            {t.passPenalty}
-          </span>
-        </button>
+        {/* MÓW — primary thumb-reach CTA (largest, closest to the bottom).
+            Triggers Web Speech recognition. Rendered only on player's turn so
+            the opponent spinner is the only thing visible during AI guesses. */}
+        {activePlayer === "player" && (
+          <div className="px-3 mt-2">
+            <button
+              type="button"
+              onClick={startSpeechRecognition}
+              className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2 border-2 border-[#5A3A2A] shadow-[0_4px_0_#5A3A2A] active:translate-y-0.5 active:shadow-[0_1px_0_#5A3A2A] transition cursor-pointer ${
+                isListening ? "bg-[#E95050] scale-[1.01]" : "bg-[#E95050] hover:bg-[#FF6464]"
+              }`}
+              title={t.voiceReport}
+            >
+              {isListening ? (
+                <>
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-white opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                  </span>
+                  <span className="font-display font-black text-sm uppercase tracking-widest text-white">
+                    {t.speakBtn}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Mic className="h-5 w-5 text-white" strokeWidth={2.5} />
+                  <span className="font-display font-black text-sm uppercase tracking-widest text-white">
+                    {t.speakBtn}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* PASUJ — secondary, outlined, deliberately smaller and further from
+            the thumb so accidental taps are rare. Keeps the −5s penalty pill
+            so the consequence is still visible. */}
+        <div className="px-3 mt-2 pb-1">
+          <button
+            type="button"
+            onClick={handlePlayerPass}
+            disabled={activePlayer !== "player"}
+            className={`w-full h-9 rounded-xl border-2 px-3 font-display font-black text-[11px] uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+              dangerMode
+                ? "bg-[#E95050] text-white border-[#5A3A2A]"
+                : "bg-transparent text-[#5A3A2A] border-[#5A3A2A] hover:bg-[#5A3A2A]/5"
+            }`}
+          >
+            {dangerMode && <AlertTriangle className="h-3 w-3" />}
+            <span>{t.passBtn}</span>
+            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${
+              dangerMode
+                ? "bg-[#FFD84D] text-[#5A3A2A] border-[#5A3A2A]"
+                : "bg-[#FFD84D] text-[#5A3A2A] border-[#5A3A2A]"
+            }`}>
+              {t.passPenalty}
+            </span>
+          </button>
+        </div>
       </div>
 
     </div>
