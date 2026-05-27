@@ -7,7 +7,6 @@ export type Difficulty = "easy" | "medium" | "hard";
 export interface Bot {
   id: string;            // "bot_02" .. "bot_25"
   number: number;        // 2..25 — UI label suffix
-  avatar: string;        // emoji
   avatarColor: string;   // Tailwind bg-* class
   difficulty: Difficulty;
   pokemonPool: number[]; // Pokédex IDs (10–18 entries, deterministic per bot.number)
@@ -16,7 +15,6 @@ export interface Bot {
 export interface PlayerProfile {
   id: "player";
   number: 1;
-  avatar: "⚡";
   avatarColor: string;
   difficulty: "medium";
 }
@@ -81,12 +79,6 @@ export function generateBotPool(seed: number, difficulty: Difficulty): number[] 
 }
 
 // --- Visual identity pools (24 entries, indexed by bot.number - 2) ----------
-const BOT_EMOJIS = [
-  "🤖", "🎩", "🥷", "🏹", "🛡️", "🎯", "🧙", "🥋",
-  "🪄", "🦊", "🦁", "🐯", "🐻", "🦅", "🦉", "🦋",
-  "🐲", "🦖", "🐙", "🦀", "🐳", "🐉", "🐺", "🐗"
-];
-
 const BOT_COLORS = [
   "bg-indigo-500", "bg-blue-500", "bg-teal-500", "bg-emerald-500",
   "bg-lime-600", "bg-amber-500", "bg-orange-500", "bg-red-500",
@@ -115,7 +107,6 @@ function buildInitial(): { grid: GridCell[]; bots: Record<string, Bot> } {
         bots[botId] = {
           id: botId,
           number: botNumber,
-          avatar: BOT_EMOJIS[botNumber - 2],
           avatarColor: BOT_COLORS[botNumber - 2],
           difficulty,
           pokemonPool: generateBotPool(botNumber, difficulty)
@@ -138,7 +129,6 @@ export const BOTS: Record<string, Bot> = built.bots;
 export const PLAYER_PROFILE: PlayerProfile = {
   id: "player",
   number: 1,
-  avatar: "⚡",
   avatarColor: "bg-cyan-500",
   difficulty: "medium"
 };

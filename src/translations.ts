@@ -42,7 +42,7 @@ export const translations = {
     boardConquestTitle: "PODBÓJ KANTO",
     boardRoundLabel: "R.",
     boardOwnFieldsCounterLabel: "TWOICH PÓL",
-    boardAttacksLabel: "ATAKI",
+    boardTargetsLabel: "CELÓW",
     boardLegendMy: "MOJE",
     boardLegendAvailable: "DOSTĘPNE",
     boardLegendLocked: "ZABLOKOWANE",
@@ -63,9 +63,10 @@ export const translations = {
     duelHurryPill: "POŚPIESZ SIĘ",
     duelPasFlashPill: "PAS",
     duelRecognizeTitle: "ROZPOZNAJ POKÉMONA",
-    duelRecognizeHintPrefix: "Wpisz nazwę po angielsku, np.",
+    duelRecognizeHintPrefix: "Wpisz lub wymów nazwę Pokémona po angielsku, np.",
     // Pokémon detail card (design 09)
     cardTopBackToList: "POKÉDEX",
+    cardBackToPokedex: "POWRÓT DO POKÉDEXU",
     cardEntryLabel: "WPIS",
     cardCategoryPlaceholder: "POKÉMON KANTO",
     // Help (design 05)
@@ -333,7 +334,7 @@ export const translations = {
     boardConquestTitle: "KANTO CONQUEST",
     boardRoundLabel: "R.",
     boardOwnFieldsCounterLabel: "YOUR FIELDS",
-    boardAttacksLabel: "ATTACKS",
+    boardTargetsLabel: "TARGETS",
     boardLegendMy: "MINE",
     boardLegendAvailable: "OPEN",
     boardLegendLocked: "LOCKED",
@@ -354,9 +355,10 @@ export const translations = {
     duelHurryPill: "HURRY UP",
     duelPasFlashPill: "PASS",
     duelRecognizeTitle: "IDENTIFY THE POKÉMON",
-    duelRecognizeHintPrefix: "Type the English name, e.g.",
+    duelRecognizeHintPrefix: "Type or say the Pokémon's English name, e.g.",
     // Pokémon detail card (design 09)
     cardTopBackToList: "POKÉDEX",
+    cardBackToPokedex: "BACK TO POKÉDEX",
     cardEntryLabel: "ENTRY",
     cardCategoryPlaceholder: "KANTO POKÉMON",
     // Help (design 05)

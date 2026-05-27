@@ -47,6 +47,17 @@
   animation: sticker-wiggle 1s ease-in-out infinite;
 }
 
+/* Pass penalty — floats up + fades out next to the player timer after PAS. */
+@keyframes penalty-float {
+  0%   { transform: translateY(4px);   opacity: 0;   }
+  20%  { transform: translateY(0);     opacity: 1;   }
+  100% { transform: translateY(-22px); opacity: 0;   }
+}
+
+.animate-penalty-float {
+  animation: penalty-float 850ms cubic-bezier(0.18, 0.89, 0.32, 1.05) forwards;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

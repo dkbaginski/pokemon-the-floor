@@ -696,7 +696,7 @@ export default function App() {
                   <div className="shrink-0 flex items-center gap-1 bg-[#FFD84D] text-[#1B2840] px-2 py-0.5 rounded-full border-2 border-[#1B2840] shadow-[0_2px_0_#1B2840]">
                     <SwordsCrossedIcon size={12} color="#1B2840" strokeWidth={2.2} />
                     <span className="font-display font-black text-[10px] tracking-wider">
-                      {attackableCount} {t.boardAttacksLabel}
+                      {attackableCount} {t.boardTargetsLabel}
                     </span>
                   </div>
                 </div>
@@ -758,7 +758,7 @@ export default function App() {
                 </div>
 
                 <h3 className="text-sm font-black text-[#5A3A2A] leading-tight pl-2 uppercase">
-                  <span className="text-[#24456B] font-black">{botName(selectedOpponent)}</span> ({selectedOpponent.avatar}) {t.defenseModeSubtitle}
+                  <span className="text-[#24456B] font-black">{botName(selectedOpponent)}</span> {t.defenseModeSubtitle}
                 </h3>
 
                 <p className="text-xs text-[#5A3A2A]/80 pl-2 leading-relaxed font-sans font-bold">

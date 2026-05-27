@@ -74,6 +74,16 @@ const PokemonCard = memo(function PokemonCard({
         </div>
       )}
 
+      {/* Caught marker — white Pokéball badge, mirrors the eye badge slot. */}
+      {isCaught && (
+        <div
+          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center overflow-hidden"
+          title={t.statusCaught}
+        >
+          <PokeBallLogoIcon size={14} ink="#5A3A2A" red="#DC2630" />
+        </div>
+      )}
+
       {/* Picture Container */}
       <div className="my-2 h-14 w-14 flex items-center justify-center relative">
         {isUnlocked ? (
@@ -103,7 +113,7 @@ const PokemonCard = memo(function PokemonCard({
           className="text-[11px] font-display font-black tracking-tight leading-none min-h-[22px] flex items-center justify-center text-center uppercase break-all px-0.5"
           style={{ color: "#5A3A2A" }}
         >
-          {isUnlocked ? (isCaught ? poke.name : t.statusSeen) : "???"}
+          {isCaught || isSeen ? poke.name : "???"}
         </div>
         
         {/* Stable High-Contrast Types Footprint Box — full-card-width pills
@@ -253,7 +263,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
       {/* Red gradient header bar (design 04) — only on list view, hidden in detail */}
       {!selectedPokeDetail && (
-        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] px-4 pt-3 pb-3 relative">
+        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] pl-4 pr-12 pt-3 pb-3 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {/* Pokéball — classic red top, white bottom (design 04). The
@@ -269,11 +279,11 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                 <span className="h-1.5 w-1.5 rounded-full bg-[#A9E6CF]" />
               </div>
             </div>
-            <div className="text-right">
-              <div className="font-display font-black text-base italic uppercase text-white leading-none">
+            <div className="text-right min-w-0">
+              <div className="font-display font-black text-base italic uppercase text-white leading-none truncate">
                 {t.pokedexTitle}
               </div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-white/80 mt-0.5">
+              <div className="text-[9px] font-black uppercase tracking-widest text-white/80 mt-0.5 truncate">
                 KANTO · NAT.
               </div>
             </div>
@@ -442,7 +452,9 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
             id="pokedex-detail-fullbleed"
             className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa"
           >
-            {/* Top bar — POKÉDEX back | POKÉ brand | X */}
+            {/* Top bar — POKÉDEX back chevron + POKÉ brand pill.
+                Top-right X removed per design (CLAUDE.md §5): the only exit is
+                the persistent yellow "POWRÓT DO POKÉDEXU" CTA at the bottom. */}
             <div className="shrink-0 h-12 border-b-2 border-[#5A3A2A] bg-[#FFF4DF] px-3 flex items-center justify-between z-10">
               <button
                 onClick={() => setSelectedPokeDetail(null)}
@@ -454,13 +466,9 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
               <div className="bg-[#FFD84D] text-[#24456B] font-display font-black text-[11px] px-3 py-1 rounded-xl border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] tracking-tight uppercase italic">
                 ● POKÉ
               </div>
-              <button
-                onClick={onClose}
-                className="rounded-xl bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] hover:bg-cafe-beige w-8 h-8 flex items-center justify-center shadow-[0_2px_0_#5A3A2A] cursor-pointer"
-                aria-label={t.pokedexClose}
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {/* Spacer keeps the POKÉ pill visually centred between the back
+                  chevron and the right edge. Width matches the back button. */}
+              <div className="w-[88px]" aria-hidden="true" />
             </div>
 
             {/* Main card */}
@@ -536,6 +544,17 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Persistent yellow CTA — only exit from the detail card per design. */}
+            <div className="shrink-0 px-3 pt-2 pb-3 border-t-2 border-[#5A3A2A] bg-[#FFF4DF]">
+              <button
+                onClick={() => setSelectedPokeDetail(null)}
+                className="w-full btn-core-yellow py-3 flex items-center justify-center gap-1.5"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t.cardBackToPokedex}
+              </button>
             </div>
           </div>
         );
