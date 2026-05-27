@@ -30,6 +30,12 @@ interface ComponentInfo {
   // edge of the merged shape.
   cornerCellId: number;
   size: number;
+  // True when ANY cell of the polygon is orthogonally adjacent to a player
+  // tile. The whole polygon is attackable when this is true (we don't require
+  // the corner cell itself to be adjacent — for a multi-cell bot territory
+  // sitting next to the player, only the touching cell satisfies the
+  // per-cell adjacency check, but the territory as a whole is reachable).
+  isAdjacent: boolean;
 }
 
 interface GridItem {
@@ -68,14 +74,33 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
   const visited = new Set<number>();
   const result = new Map<number, ComponentInfo>();
 
+  // Polygon adjacency depends on whether ANY cell in the component is
+  // orthogonally adjacent to a player-owned tile. We pre-compute a set of
+  // player cell positions once and reuse it in the BFS pass.
+  const playerPositions = new Set<string>();
+  for (const c of grid) {
+    if (c.currentOwnerId === "player") playerPositions.add(`${c.row}-${c.col}`);
+  }
+  const cellTouchesPlayer = (c: GridCell): boolean => {
+    if (c.currentOwnerId === "player") return false;
+    return (
+      playerPositions.has(`${c.row - 1}-${c.col}`) ||
+      playerPositions.has(`${c.row + 1}-${c.col}`) ||
+      playerPositions.has(`${c.row}-${c.col - 1}`) ||
+      playerPositions.has(`${c.row}-${c.col + 1}`)
+    );
+  };
+
   for (const start of grid) {
     if (visited.has(start.id)) continue;
     const queue: GridCell[] = [start];
     visited.add(start.id);
     const cells: GridCell[] = [];
+    let isAdjacent = false;
     while (queue.length > 0) {
       const c = queue.shift()!;
       cells.push(c);
+      if (cellTouchesPlayer(c)) isAdjacent = true;
       const neighbours = [
         byPos.get(`${c.row - 1}-${c.col}`),
         byPos.get(`${c.row + 1}-${c.col}`),
@@ -112,7 +137,8 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
       ownerId: start.currentOwnerId,
       anchorCellId: anchor.id,
       cornerCellId: corner.id,
-      size: cells.length
+      size: cells.length,
+      isAdjacent
     };
     for (const c of cells) result.set(c.id, info);
   }
@@ -183,14 +209,22 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             const cell = item.cell;
             const ownerBot = BOTS[cell.currentOwnerId];
             const isPlayerTile = item.isPlayer;
-            const isLocked = !isPlayerTile && !item.isAdjacent;
+            // Polygon-level adjacency drives interaction state across the
+            // whole territory: if ANY cell of a multi-cell bot polygon is
+            // adjacent to the player, every cell of that polygon paints with
+            // the "attackable" treatment (white bg, red swords badge, click
+            // handler enabled). Without this, the non-touching half of the
+            // polygon renders as a locked beige tile next to the attackable
+            // anchor — visually splitting the territory in two.
+            const polygonAdjacent = item.component.isAdjacent;
+            const isLocked = !isPlayerTile && !polygonAdjacent;
 
             // Background / interaction class
             const bgClass = item.isJustConquered
               ? "animate-lava-takeover bg-[#FFD84D] text-[#24456B]"
               : isPlayerTile
               ? "bg-[#FFD84D] cursor-default text-[#24456B]"
-              : item.isAdjacent
+              : polygonAdjacent
               ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
               : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
 
@@ -213,7 +247,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             // own bg so the merged polygon paints as one continuous colour.
             const fillColor = item.isJustConquered || isPlayerTile
               ? "#FFD84D"
-              : item.isAdjacent
+              : polygonAdjacent
                 ? "#FFFFFF"
                 : "#EADFC9";
 
@@ -245,9 +279,9 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
               <button
                 key={item.key}
                 onClick={() => {
-                  if (item.isAdjacent && ownerBot) onSelectCell(cell, ownerBot);
+                  if (polygonAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
-                disabled={!item.isAdjacent}
+                disabled={!polygonAdjacent}
                 className={`relative flex flex-col items-center justify-end p-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${borderClass} ${cornerClass} ${shadowClass} ${zClass} ${bgClass}`}
                 style={{
                   gridRow: `${item.gridRowStart} / span 1`,
@@ -371,7 +405,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
                       style={{
                         fontSize: "clamp(8px, 1vh, 10px)",
-                        color: item.isAdjacent ? "#24456B" : "#5A3A2A",
+                        color: polygonAdjacent ? "#24456B" : "#5A3A2A",
                         WebkitFontSmoothing: "antialiased",
                       }}
                     >
@@ -392,7 +426,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black opacity-70"
                       style={{
                         fontSize: "clamp(8px, 1vh, 10px)",
-                        color: item.isAdjacent ? "#24456B" : "#5A3A2A",
+                        color: polygonAdjacent ? "#24456B" : "#5A3A2A",
                         WebkitFontSmoothing: "antialiased",
                       }}
                     >
@@ -413,7 +447,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
 
-                {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && item.isAdjacent && (
+                {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && polygonAdjacent && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#E95050] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center pointer-events-none z-20">
                     <SwordsCrossedIcon size={10} color="#FFFFFF" strokeWidth={2.5} />
                   </div>
@@ -435,7 +469,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 )}
 
                 {/* Hover combat overlay */}
-                {item.isAdjacent && (
+                {polygonAdjacent && (
                   <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-30">
                     <Swords className="h-4 w-4 text-pokemon-navy" />
                   </div>

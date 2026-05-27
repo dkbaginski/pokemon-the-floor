@@ -1,6 +1,6 @@
 import { useState, memo } from "react";
 import { POKEMON_LIST, getPokemonImageUrl, POKEMON_TYPES_PL, Pokemon, getTypeName } from "../pokemonData";
-import { Search, Lock, Award, X, ChevronLeft } from "lucide-react";
+import { Search, Lock, X, ChevronLeft } from "lucide-react";
 import { EyeIcon, ProgressRing, PokeBallLogoIcon } from "./icons";
 
 interface PokedexViewProps {
@@ -65,7 +65,7 @@ const PokemonCard = memo(function PokemonCard({
 
       {/* Status badges — same palette as the detail-card pills so the grid
           and detail views stay visually consistent. Sighted = light-blue eye;
-          caught = soft-mint medal. */}
+          caught = white Pokéball (matching the Pokémon-canon catch icon). */}
       {isSeen && !isCaught && (
         <div
           className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
@@ -76,10 +76,10 @@ const PokemonCard = memo(function PokemonCard({
       )}
       {isCaught && (
         <div
-          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#A9E6CF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
+          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center overflow-hidden"
           title={t.statusCaught}
         >
-          <Award className="h-3 w-3 text-[#24456B]" strokeWidth={2.4} />
+          <PokeBallLogoIcon size={14} ink="#5A3A2A" red="#DC2630" />
         </div>
       )}
 
@@ -119,7 +119,7 @@ const PokemonCard = memo(function PokemonCard({
             so longer Polish names ("TRAWIASTY", "PSYCHICZNY", "ELEKTRYCZNY")
             fit without truncation. Empty slot keeps a 14px placeholder so
             single-type Pokémon stay vertically aligned with dual-type ones. */}
-        <div className="mt-1 flex flex-col gap-0.5 items-stretch justify-center w-full min-h-[30px] select-none pb-1.5">
+        <div className="mt-1 flex flex-col gap-1.5 items-stretch justify-center w-full min-h-[34px] select-none pb-1.5">
           <div className="flex items-center justify-center h-3.5 w-full">
             {type1Name ? (
               <span
@@ -242,6 +242,10 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedPokeDetail, setSelectedPokeDetail] = useState<Pokemon | null>(null);
+  // Status filter — driven by tapping the green CAUGHT / blue SEEN tiles in
+  // the stats row. `null` means "no status filter" (show everything that
+  // matches the search + type filters).
+  const [selectedStatus, setSelectedStatus] = useState<"caught" | "seen" | null>(null);
 
   const unlockedSet = new Set(unlockedIds);
   const seenSet = new Set([...unlockedIds, ...seenIds]);
@@ -251,7 +255,11 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
   const percentage = Math.round((unlockedCount / totalCount) * 100);
 
   const filteredPokemon = POKEMON_LIST.filter((poke) => {
-    const matchesSearch = poke.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const isCaught = unlockedSet.has(poke.id);
+    const isSeenOnly = seenSet.has(poke.id) && !isCaught;
+    if (selectedStatus === "caught" && !isCaught) return false;
+    if (selectedStatus === "seen" && !isSeenOnly) return false;
+    const matchesSearch = poke.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           poke.id.toString() === searchTerm;
     const matchesType = !selectedType || poke.types.includes(selectedType);
     return matchesSearch && matchesType;
@@ -262,7 +270,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
 
       {/* Red gradient header bar (design 04) — only on list view, hidden in detail */}
       {!selectedPokeDetail && (
-        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] pl-3 pr-14 pt-3 pb-3 relative">
+        <div className="shrink-0 bg-gradient-to-b from-[#E95050] to-[#C53636] border-b-2 border-[#5A3A2A] pl-3 pr-16 pt-3 pb-3 relative">
           <div className="flex items-center gap-2">
             <div className="shrink-0 flex items-center gap-2">
               {/* Pokéball — classic red top, white bottom (design 04). */}
@@ -307,18 +315,49 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
               </ProgressRing>
             </div>
             <div className="flex-1 grid grid-cols-3 gap-1.5">
-              <div className="bg-[#A9E6CF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+              {/* Tap to toggle the corresponding status filter. The active
+                  tile gets a navy outline + cocoa shadow lift so it reads as
+                  a pressed button without changing colour. */}
+              <button
+                type="button"
+                onClick={() => setSelectedStatus((s) => (s === "caught" ? null : "caught"))}
+                className={`bg-[#A9E6CF] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                  selectedStatus === "caught"
+                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840] ring-2 ring-[#1B2840]"
+                    : "border-[#5A3A2A]"
+                }`}
+                title={t.metricCaught}
+              >
                 <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
                 <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricCaught}</div>
-              </div>
-              <div className="bg-[#BDEBFF] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStatus((s) => (s === "seen" ? null : "seen"))}
+                className={`bg-[#BDEBFF] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                  selectedStatus === "seen"
+                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840] ring-2 ring-[#1B2840]"
+                    : "border-[#5A3A2A]"
+                }`}
+                title={t.metricSeen}
+              >
                 <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(seenCount).padStart(2, "0")}</div>
                 <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricSeen}</div>
-              </div>
-              <div className="bg-[#FFD84D] border-2 border-[#5A3A2A] rounded-xl px-1.5 py-1 text-center flex flex-col justify-center">
+              </button>
+              {/* TOTAL tile clears the status filter (acts as "show all"). */}
+              <button
+                type="button"
+                onClick={() => setSelectedStatus(null)}
+                className={`bg-[#FFD84D] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                  selectedStatus === null
+                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840]"
+                    : "border-[#5A3A2A]"
+                }`}
+                title="TOTAL"
+              >
                 <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{totalCount}</div>
                 <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">TOTAL</div>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -522,11 +561,19 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                   </div>
                 </div>
 
-                {/* Status pill row */}
+                {/* Status pill row — matches the grid badge iconography:
+                    caught = white pill with red Pokéball, seen = sky-blue
+                    pill with eye. Different icons keep the catch/sight
+                    states distinct, the white pill colour pairs with the
+                    Pokéball canon without overloading the mint green that
+                    we use elsewhere for success states. */}
                 <div className="px-4 py-3 flex justify-center">
                   {isPokeCaught ? (
-                    <span className="text-[#24456B] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#A9E6CF] border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">
-                      <Award className="h-3.5 w-3.5" /> {t.statusCaught}
+                    <span className="text-[#5A3A2A] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-white border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full overflow-hidden">
+                        <PokeBallLogoIcon size={16} ink="#5A3A2A" red="#DC2630" />
+                      </span>
+                      {t.statusCaught}
                       {entryNumber !== null && <> · {t.cardEntryLabel} #{String(entryNumber).padStart(3, "0")}</>}
                     </span>
                   ) : (
