@@ -414,26 +414,10 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
 
-                {/* Echo label on non-anchor cells of a multi-cell bot polygon
-                    so the merged territory is unambiguously readable as one
-                    owner. Without this, a non-anchor cell renders as a blank
-                    background and is easy to mistake for a separate region —
-                    especially in the bottom row where a captured tile sits
-                    next to an unrelated bot's tile with a similar sprite. */}
-                {!item.isAnchor && !isPlayerTile && ownerBot && item.component.size > 1 && (
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center px-1">
-                    <span
-                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black opacity-70"
-                      style={{
-                        fontSize: "clamp(8px, 1vh, 10px)",
-                        color: polygonAdjacent ? "#24456B" : "#5A3A2A",
-                        WebkitFontSmoothing: "antialiased",
-                      }}
-                    >
-                      {t.botLabel} {ownerBot.number}
-                    </span>
-                  </div>
-                )}
+                {/* (No echo label on non-anchor cells — polygon-level adjacency
+                    plus the merged border + single corner badge + continuous
+                    difficulty bar already read as one territory, so duplicating
+                    the "GRACZ N" text would be noise.) */}
 
                 {/* Corner badges — render from the polygon's visual top-right
                     cell (not the label centroid) so that on a 2-wide merged
