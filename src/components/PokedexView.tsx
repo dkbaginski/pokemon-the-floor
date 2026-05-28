@@ -113,7 +113,7 @@ const PokemonCard = memo(function PokemonCard({
           <div className="relative flex items-center justify-center text-[#5A3A2A]/40">
             <img
               src={pokemonImgUrl}
-              alt={language === "pl" ? "Zablokowany" : "Locked"}
+              alt={t.lockedAlt}
               referrerPolicy="no-referrer"
               className="h-12 w-12 object-contain brightness-0 opacity-10 select-none grayscale"
             />

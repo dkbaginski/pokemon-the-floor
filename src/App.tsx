@@ -5,7 +5,7 @@ import FloorGrid from "./components/FloorGrid";
 import DuelArea from "./components/DuelArea";
 import PokedexView from "./components/PokedexView";
 import TutorialOverlay from "./components/TutorialOverlay";
-import { translations } from "./translations";
+import { createTranslator, interpolate } from "./translations";
 import {
   Trophy,
   Sparkles,
@@ -47,7 +47,7 @@ export default function App() {
     localStorage.setItem("the_floor_language", lang);
   };
 
-  const t = translations[language];
+  const { t, tp } = createTranslator(language);
 
   // --- Game Core States ---
   const [screen, setScreen] = useState<ScreenState>("start");
@@ -485,7 +485,7 @@ export default function App() {
             setShowHelp(false);
           }}
           className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
-          title={language === "pl" ? "Powrót do menu głównego" : "Back to main menu"}
+          title={t.tipBackToMenu}
         >
           <div className="bg-[#1B2840] text-white font-black text-[11px] pl-1 pr-2.5 py-1 rounded-full tracking-tight uppercase italic border-2 border-[#1B2840] shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5">
             <PokeBallLogoIcon size={16} ink="#1B2840" red="#DC2630" />
@@ -498,7 +498,7 @@ export default function App() {
           <button
             onClick={() => changeLanguage(language === "pl" ? "en" : "pl")}
             className="flex items-center justify-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] text-[10px] sm:text-xs font-black tracking-wider uppercase transition cursor-pointer text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]"
-            title={language === "pl" ? "Zmień na angielski" : "Switch to Polish"}
+            title={t.tipSwitchLang}
           >
             <GlobeIcon size={14} color="#24456B" strokeWidth={2.2} />
             <span className="font-mono text-[10px] tracking-wider">{language === "pl" ? "PL" : "EN"}</span>
@@ -508,7 +508,7 @@ export default function App() {
             <button
               onClick={() => setShowBattleLog(true)}
               className="flex items-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] transition cursor-pointer shadow-[0_2px_0_#5A3A2A]"
-              title={language === "pl" ? "Historia walk" : "Battle history"}
+              title={t.tipBattleHistory}
             >
               <ClockRewindIcon size={14} color="#24456B" strokeWidth={2.2} />
               <span className="text-[#5A3A2A] text-[10px] uppercase tracking-widest font-black">{t.logiBtn}</span>
@@ -519,7 +519,7 @@ export default function App() {
             <button
               onClick={handleFullReset}
               className="h-8 w-8 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] hover:text-red-500 transition cursor-pointer flex items-center justify-center shadow-[0_2px_0_#5A3A2A]"
-              title={language === "pl" ? "Resetuj grę" : "Reset game"}
+              title={t.tipResetGame}
             >
               <ResetIcon size={14} color="#5A3A2A" strokeWidth={2.2} />
             </button>
@@ -693,7 +693,7 @@ export default function App() {
                   <div className="shrink-0 flex items-center gap-1 bg-[#FFD84D] text-[#1B2840] px-2 py-0.5 rounded-full border-2 border-[#1B2840] shadow-[0_2px_0_#1B2840]">
                     <SwordsCrossedIcon size={12} color="#1B2840" strokeWidth={2.2} />
                     <span className="font-display font-black text-[10px] tracking-wider">
-                      {attackableCount} {t.boardTargetsLabel}
+                      {tp("targets", attackableCount)}
                     </span>
                   </div>
                 </div>
@@ -976,7 +976,7 @@ export default function App() {
               {t.winTitleBig}
             </h1>
             <p className="shrink-0 text-[11px] text-[#5A3A2A] font-bold leading-snug px-2">
-              {language === "pl" ? "Pokonałeś" : "You defeated"} {botName(selectedOpponent)} {language === "pl" ? "i przejmujesz" : "and seize"} {t.winFieldNumber} #{selectedCell ? selectedCell.id : ""}. {language === "pl" ? "Twoje terytorium rośnie!" : "Your territory grows!"}
+              {interpolate(t.winFieldDesc, { opponent: botName(selectedOpponent), field: t.winFieldNumber, id: selectedCell ? selectedCell.id : "" })}
             </p>
 
             {/* Raport */}
@@ -1080,7 +1080,7 @@ export default function App() {
                 {t.gameOverTitle}
               </h1>
               <p className="shrink-0 text-[11px] text-[#5A3A2A] font-bold leading-snug px-2">
-                {selectedOpponent ? `${language === "pl" ? "Wyzwanie rzucone przez" : "The challenge from"} ${botName(selectedOpponent)} ${language === "pl" ? "okazało się zbyt wymagające. Twoje terytoria zostają, ale to pole pozostaje wolne." : "proved too demanding. Your territories remain, but this field stays open."}` : t.gameOverDesc}
+                {selectedOpponent ? interpolate(t.gameOverDescVs, { opponent: botName(selectedOpponent) }) : t.gameOverDesc}
               </p>
 
               {/* Raport */}
@@ -1308,7 +1308,7 @@ export default function App() {
                         <span className="text-[9px] font-mono font-black text-[#5A3A2A]">{playerTerritorySize}/25</span>
                       </div>
                       <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal2Title}</div>
-                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">{t.histGoal2Sub}{attackableCount > 0 ? `${attackableCount} ${language === "pl" ? "dostępnych pól" : "available fields"}` : language === "pl" ? "—" : "—"}</div>
+                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">{t.histGoal2Sub}{attackableCount > 0 ? tp("availableFields", attackableCount) : "—"}</div>
                     </div>
                   </div>
 
@@ -1325,10 +1325,10 @@ export default function App() {
                         <span className="text-[9px] font-mono font-black text-white/60">{t.histStatusFinal}</span>
                       </div>
                       <div className="text-[11px] font-black text-white leading-tight">
-                        {t.histGoal3Title.replace("151", "")}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{language === "pl" ? "Pokémonów" : "Pokémon"}
+                        {t.histGoal3Title.replace("151", "")}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{tp("pokemonNoun", 151)}
                       </div>
                       <div className="text-[9px] text-white/70 font-bold mt-0.5">
-                        {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {t.histGoal3SubEntries} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
+                        {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
                       </div>
                     </div>
                   </div>
