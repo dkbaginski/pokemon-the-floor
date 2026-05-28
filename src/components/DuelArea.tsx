@@ -101,6 +101,7 @@ export default function DuelArea({
   // Initialize first Pokemon
   useEffect(() => {
     setCurrentPokemon(getNextPokemonFromPool());
+    setIsManualMode(false);
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -241,6 +242,7 @@ export default function DuelArea({
     setPokedexStats((prev) => ({ ...prev, passed: prev.passed + 1 }));
     setSpeechError(null);
     setTypedAnswer("");
+    setIsManualMode(false);
     setCurrentPokemon(getNextPokemonFromPool());
     setPassFlashUntil(Date.now() + 450); // brief mignięcie, nie utrzymujący się czerwony stan
     setPassPenaltyKey((k) => k + 1);
@@ -273,6 +275,7 @@ export default function DuelArea({
     if (duelEnded) return;
     setActivePlayer("player");
     setOpponentGuessText("");
+    setIsManualMode(false);
     setCurrentPokemon(getNextPokemonFromPool());
 
     setTimeout(() => {
@@ -622,7 +625,7 @@ export default function DuelArea({
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
                   </span>
                   <span className="font-display font-black text-sm uppercase tracking-widest text-white">
-                    {t.speakBtn}
+                    {t.speechListening}
                   </span>
                 </>
               ) : (

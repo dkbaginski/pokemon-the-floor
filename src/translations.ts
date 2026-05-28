@@ -283,7 +283,7 @@ const dict = {
   speechCorrect: { en: "Correct if wrong.", pl: "Popraw jeśli źle." },
   speechWrong: { en: "Invalid name. Try again or click 'Pass'!", pl: "Niewłaściwa nazwa. Spróbuj ponownie lub kliknij 'Pasuj'!" },
   speechPrompt: { en: "Type the English name, e.g.", pl: "Wpisz angielską nazwę, np." },
-  speechListening: { en: "LISTENING", pl: "SŁUCHAM" },
+  speechListening: { en: "LISTENING…", pl: "SŁUCHAM…" },
   voiceReport: { en: "Identify the Pokémon", pl: "Rozpoznaj Pokémona" },
   thinkingReport: { en: "Opponent thinking...", pl: "Przeciwnik Myśli..." },
   opponentTurnReport: { en: "Opponent's clock is ticking...", pl: "Zegar przeciwnika odlicza cenny czas..." },
