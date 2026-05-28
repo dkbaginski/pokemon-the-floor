@@ -278,6 +278,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             return (
               <button
                 key={item.key}
+                data-tutorial-target={polygonAdjacent && cell.id === item.component.cornerCellId ? "attackable" : undefined}
                 onClick={() => {
                   if (polygonAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
@@ -392,10 +393,21 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
 
+                {/* ID-pill (design 02) — small white pill with the tile number
+                    in the top-left of the anchor cell. Rendered once per
+                    polygon so multi-cell bot territories don't duplicate the
+                    label. Player tiles intentionally don't render it — the
+                    centred ⚡ + nickname is enough. */}
+                {item.isAnchor && !isPlayerTile && ownerBot && (
+                  <span className="absolute top-1 left-1 z-20 font-mono font-black text-[8px] bg-white border border-[#5A3A2A] rounded px-1 text-[#5A3A2A] pointer-events-none leading-none py-0.5">
+                    {String(ownerBot.number).padStart(2, "0")}
+                  </span>
+                )}
+
                 {item.isAnchor && !isPlayerTile && ownerBot && (
                   <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 px-1">
                     <img
-                      src={getPokemonImageUrl(ownerBot.pokemonPool[0] || 1)}
+                      src={getPokemonImageUrl(ownerBot.avatarPokemonId)}
                       alt=""
                       referrerPolicy="no-referrer"
                       className={`h-7 w-7 sm:h-9 sm:w-9 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}

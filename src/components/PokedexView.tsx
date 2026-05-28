@@ -52,23 +52,39 @@ const PokemonCard = memo(function PokemonCard({
   const type1Name = poke.types[0] ? getTypeName(poke.types[0], language) : null;
   const type2Name = poke.types[1] ? getTypeName(poke.types[1], language) : null;
 
+  // Primary type drives the top accent stripe on the card. For locked
+  // ("???") entries we fall back to a neutral cocoa stripe so we don't leak
+  // the Pokémon's type before the player has seen it.
+  const primaryType = poke.types[0];
+  const topStripeColor = isUnlocked
+    ? POKEMON_TYPES_PL[primaryType]?.bgHex || "#A9E6CF"
+    : "rgba(90,58,42,0.2)";
+
   return (
     <button
       onClick={() => { if (isUnlocked) onSelect(poke); }}
       disabled={!isUnlocked}
       className={`relative overflow-hidden rounded-2xl flex flex-col items-center justify-between text-center transition-all min-h-[155px] p-2.5 shrink-0 ${cardBg}`}
     >
-      {/* ID Counter */}
-      <div className="absolute top-1.5 right-2 text-[9px] font-mono font-black text-[#5A3A2A]/60">
+      {/* Top accent stripe (design 04) — full-width 4px stripe in the primary
+          type colour. For locked entries falls back to a cocoa tint so the
+          type isn't leaked before the player has seen the Pokémon. */}
+      <div
+        className="absolute top-0 left-0 right-0 h-1 pointer-events-none"
+        style={{ backgroundColor: topStripeColor }}
+      />
+
+      {/* ID-pill (design 04) — navy capsule with cream text in the LEFT-top
+          corner. Replaces the earlier right-side text-only ID. */}
+      <div className="absolute top-1.5 left-1.5 z-10 bg-[#1B2840] text-white font-mono font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider leading-none">
         {formattedId}
       </div>
 
-      {/* Status badges — same palette as the detail-card pills so the grid
-          and detail views stay visually consistent. Sighted = light-blue eye;
-          caught = white Pokéball (matching the Pokémon-canon catch icon). */}
+      {/* Status badges — moved to the RIGHT-top corner to make room for the
+          ID-pill. Sighted = light-blue eye; caught = white Pokéball. */}
       {isSeen && !isCaught && (
         <div
-          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center"
+          className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#BDEBFF] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center z-10"
           title={t.statusSeen}
         >
           <EyeIcon size={10} color="#24456B" strokeWidth={2.4} />
@@ -76,7 +92,7 @@ const PokemonCard = memo(function PokemonCard({
       )}
       {isCaught && (
         <div
-          className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center overflow-hidden"
+          className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center overflow-hidden z-10"
           title={t.statusCaught}
         >
           <PokeBallLogoIcon size={14} ink="#5A3A2A" red="#DC2630" />
@@ -284,11 +300,11 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                 <span className="h-1.5 w-1.5 rounded-full bg-[#A9E6CF]" />
               </div>
             </div>
-            <div className="flex-1 min-w-0 text-right">
-              <div className="font-display font-black text-base italic uppercase text-white leading-none truncate">
+            <div className="flex-1 min-w-0 text-right pr-0.5">
+              <div className="font-display font-black text-base italic uppercase text-white leading-none whitespace-nowrap">
                 {t.pokedexTitle}
               </div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-white/80 mt-0.5 truncate">
+              <div className="text-[9px] font-black uppercase tracking-widest text-white/80 mt-0.5 whitespace-nowrap">
                 KANTO · NAT.
               </div>
             </div>
@@ -309,8 +325,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                 borderColor="#1B2840"
               >
                 <div className="flex flex-col items-center leading-none">
-                  <span className="font-mono font-black text-[13px] text-[#1B2840]">{percentage}%</span>
-                  <span className="text-[7px] font-black uppercase tracking-widest text-[#5A3A2A]/70 mt-0.5">POSTĘP</span>
+                  <span className="font-mono font-black text-base text-[#1B2840]">{percentage}%</span>
                 </div>
               </ProgressRing>
             </div>
@@ -549,6 +564,23 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                     className="object-contain"
                     style={{ height: "clamp(120px, 22vh, 180px)", filter: "drop-shadow(0 4px 8px rgba(90,58,42,0.25))" }}
                   />
+                </div>
+
+                {/* Stats row (design 09) — WZROST / WAGA / GEN. Height & weight
+                    come from PokéAPI Gen 1 data merged into POKEMON_LIST. */}
+                <div className="bg-white px-4 py-2 border-t-2 border-[#5A3A2A] grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/70">{t.cardHeight}</div>
+                    <div className="font-mono font-black text-sm text-[#24456B]">{selectedPokeDetail.height.toFixed(1)} m</div>
+                  </div>
+                  <div className="border-x-2 border-[#5A3A2A]/20">
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/70">{t.cardWeight}</div>
+                    <div className="font-mono font-black text-sm text-[#24456B]">{selectedPokeDetail.weight.toFixed(1)} kg</div>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/70">{t.cardGen}</div>
+                    <div className="font-mono font-black text-sm text-[#24456B]">{t.cardGenI}</div>
+                  </div>
                 </div>
 
                 {/* Lore panel — dark navy */}

@@ -1,27 +1,148 @@
 import { ChevronRight } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface TutorialOverlayProps {
   t: any;
   onDismiss: () => void;
 }
 
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface Arrow {
+  // SVG cubic-bezier path string + the endpoint to render the highlight ring at.
+  path: string;
+  ring: Rect | null;
+}
+
+const rectOf = (sel: string): Rect | null => {
+  const el = document.querySelector(sel);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return null;
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+};
+
 /**
  * First-run tutorial overlay (design 11).
  *
  * Renders a darkened backdrop with three positional callouts pointing to the
  * key board UI: progress banner (top), an attackable tile (middle), and the
- * bottom 3-tab nav. Coordinates are approximate — they reference roughly
- * where the real elements sit on the viewport so the user can correlate.
+ * bottom 3-tab nav. Two curved SVG arrows physically connect callout 1 → the
+ * progress banner and callout 2 → an attackable tile (located at runtime via
+ * `[data-tutorial-target]` + getBoundingClientRect), and a pulsing ring marks
+ * the attackable tile. Callout 3 sits directly above the nav, so it needs no
+ * arrow.
  *
- * Persistence (the `the_floor_tutorial_seen` flag) is owned by the caller
- * — both CTAs simply invoke `onDismiss`, which writes the flag and unmounts.
+ * Single exit: the bottom CTA (or the Esc key). The previous redundant
+ * top-right "skip" link was removed — both did the same `onDismiss`.
+ *
+ * Persistence (the `the_floor_tutorial_seen` flag) is owned by the caller.
  */
 export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) {
+  const callout1Ref = useRef<HTMLDivElement>(null);
+  const callout2Ref = useRef<HTMLDivElement>(null);
+  const [arrow1, setArrow1] = useState<Arrow | null>(null);
+  const [arrow2, setArrow2] = useState<Arrow | null>(null);
+
+  // Esc also dismisses the tutorial.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  // Compute arrow paths from each callout to its real target. Recomputed on
+  // resize so the arrows stay anchored if the viewport changes.
+  useLayoutEffect(() => {
+    const compute = () => {
+      const progress = rectOf('[data-tutorial-target="progress"]');
+      const attackable = rectOf('[data-tutorial-target="attackable"]');
+      const c1 = callout1Ref.current?.getBoundingClientRect();
+      const c2 = callout2Ref.current?.getBoundingClientRect();
+
+      // Arrow 1: leaves callout 1's right edge, runs to the progress banner's
+      // x, then curves UP into its bottom edge (quarter-arc, control at the
+      // corner). Banner sits above the callout, so the arrowhead points up.
+      if (progress && c1) {
+        const sx = c1.right + 2;
+        const sy = c1.top + c1.height * 0.5;
+        const ex = progress.x + progress.w * 0.45;
+        const ey = progress.y + progress.h + 4;
+        setArrow1({
+          path: `M ${sx} ${sy} Q ${ex} ${sy} ${ex} ${ey}`,
+          ring: progress
+        });
+      } else {
+        setArrow1(null);
+      }
+
+      // Arrow 2: leaves callout 2's left edge, runs left to the tile's x, then
+      // curves DOWN into the tile's top edge (quarter-arc). Tile sits below-left
+      // of the callout, so the arrowhead points down onto the tile.
+      if (attackable && c2) {
+        const sx = c2.left - 2;
+        const sy = c2.top + c2.height * 0.5;
+        const ex = attackable.x + attackable.w * 0.5;
+        const ey = attackable.y - 3;
+        setArrow2({
+          path: `M ${sx} ${sy} Q ${ex} ${sy} ${ex} ${ey}`,
+          ring: attackable
+        });
+      } else {
+        setArrow2(null);
+      }
+    };
+
+    // Defer one frame so the board behind the overlay has laid out.
+    const raf = requestAnimationFrame(compute);
+    window.addEventListener("resize", compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", compute);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[80] bg-[#1B2840]/75 backdrop-blur-[2px] flex flex-col font-sans select-none text-cocoa">
 
+      {/* SVG arrow layer — sits above the dim backdrop, below the callouts.
+          Pointer-events disabled so taps pass through to the bottom CTA. */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-[1]" aria-hidden="true">
+        <defs>
+          <marker id="tut-arrowhead" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="#FFD84D" />
+          </marker>
+        </defs>
+        {arrow1 && (
+          <path d={arrow1.path} stroke="#FFD84D" strokeWidth="2.5" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
+        )}
+        {arrow2 && (
+          <path d={arrow2.path} stroke="#FFD84D" strokeWidth="2.5" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
+        )}
+      </svg>
+
+      {/* Pulsing ring around the attackable tile (design 11). */}
+      {arrow2?.ring && (
+        <div
+          className="absolute z-[1] rounded-xl border-2 border-[#FFD84D] animate-pulse pointer-events-none"
+          style={{
+            left: arrow2.ring.x - 3,
+            top: arrow2.ring.y - 3,
+            width: arrow2.ring.w + 6,
+            height: arrow2.ring.h + 6
+          }}
+        />
+      )}
+
       {/* Top "first time?" pill */}
-      <div className="shrink-0 mt-20 px-4 flex justify-center">
+      <div className="shrink-0 mt-20 px-4 flex justify-center relative z-[2]">
         <div className="bg-[#FFD84D] border-2 border-[#5A3A2A] rounded-2xl px-3 py-1.5 shadow-[0_3px_0_#5A3A2A]">
           <span className="font-display font-black text-[11px] uppercase tracking-wider text-[#5A3A2A] italic">
             ✦ {t.tutFirstTimePill}
@@ -30,7 +151,7 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
       </div>
 
       {/* Callout 1 — progress banner */}
-      <div className="absolute top-[140px] left-3 right-3 max-w-[280px]">
+      <div ref={callout1Ref} className="absolute top-[140px] left-3 right-3 max-w-[280px] z-[2]">
         <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white p-2.5 shadow-[0_3px_0_#5A3A2A] flex items-start gap-2">
           <div className="w-6 h-6 shrink-0 rounded-full bg-[#FFD84D] border-2 border-[#5A3A2A] text-[#5A3A2A] font-display font-black text-xs flex items-center justify-center">
             1
@@ -43,7 +164,7 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
       </div>
 
       {/* Callout 2 — attackable tile (positioned mid-screen) */}
-      <div className="absolute top-[330px] right-3 max-w-[260px]">
+      <div ref={callout2Ref} className="absolute top-[330px] right-3 max-w-[260px] z-[2]">
         <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white p-2.5 shadow-[0_3px_0_#5A3A2A] flex items-start gap-2">
           <div className="w-6 h-6 shrink-0 rounded-full bg-[#FFD84D] border-2 border-[#5A3A2A] text-[#5A3A2A] font-display font-black text-xs flex items-center justify-center">
             2
@@ -58,8 +179,8 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
       {/* Spacer pushing bottom CTA above the bottom nav */}
       <div className="flex-1" />
 
-      {/* Callout 3 — bottom nav */}
-      <div className="shrink-0 bg-[#FFD84D] border-t-2 border-[#5A3A2A] px-3 py-3 flex items-center gap-3">
+      {/* Callout 3 — bottom nav. Sits directly above the nav, so no arrow. */}
+      <div className="shrink-0 bg-[#FFD84D] border-t-2 border-[#5A3A2A] px-3 py-3 flex items-center gap-3 relative z-[2]">
         <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#FFD84D] font-display font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
           3
         </div>
@@ -75,14 +196,6 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
           <ChevronRight className="h-3.5 w-3.5 stroke-[3]" />
         </button>
       </div>
-
-      {/* Skip link top-right */}
-      <button
-        onClick={onDismiss}
-        className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-white/85 hover:text-white underline cursor-pointer"
-      >
-        {t.tutSkipLink}
-      </button>
     </div>
   );
 }

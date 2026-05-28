@@ -10,6 +10,7 @@ export interface Bot {
   avatarColor: string;   // Tailwind bg-* class
   difficulty: Difficulty;
   pokemonPool: number[]; // Pokédex IDs (10–18 entries, deterministic per bot.number)
+  avatarPokemonId: number; // Representative sprite on the board — globally unique per bot
 }
 
 export interface PlayerProfile {
@@ -95,6 +96,12 @@ function buildInitial(): { grid: GridCell[]; bots: Record<string, Bot> } {
   let cellId = 0;
   let botNumber = 2;
 
+  // Track avatar sprites already handed out so every bot shows a distinct
+  // Pokémon on the board. Greedy: pick the first entry of the bot's own pool
+  // that hasn't been used yet (pools are 10–18 entries, so for 24 bots there
+  // is always a free pick). Deterministic because pools + iteration order are.
+  const usedAvatars = new Set<number>();
+
   for (let row = 0; row < 5; row++) {
     for (let col = 0; col < 5; col++) {
       let ownerId: string;
@@ -104,12 +111,17 @@ function buildInitial(): { grid: GridCell[]; bots: Record<string, Bot> } {
         const padded = String(botNumber).padStart(2, "0");
         const botId = `bot_${padded}`;
         const difficulty = getDifficultyForCell(row, col);
+        const pool = generateBotPool(botNumber, difficulty);
+        let avatar = pool.find((id) => !usedAvatars.has(id));
+        if (avatar === undefined) avatar = pool[0];
+        usedAvatars.add(avatar);
         bots[botId] = {
           id: botId,
           number: botNumber,
           avatarColor: BOT_COLORS[botNumber - 2],
           difficulty,
-          pokemonPool: generateBotPool(botNumber, difficulty)
+          pokemonPool: pool,
+          avatarPokemonId: avatar
         };
         ownerId = botId;
         botNumber++;

@@ -69,6 +69,10 @@ export const translations = {
     cardBackToPokedex: "POWRÓT DO POKÉDEXU",
     cardEntryLabel: "WPIS",
     cardCategoryPlaceholder: "POKÉMON KANTO",
+    cardHeight: "WZROST",
+    cardWeight: "WAGA",
+    cardGen: "GEN",
+    cardGenI: "I",
     // Help (design 05)
     helpCardTitle: "JAK GRAĆ?",
     helpCardSubtitle: "3 rozdziały · czas czytania ~1 min",
@@ -139,10 +143,6 @@ export const translations = {
     dexEmptyBody: "Każdy poprawnie nazwany Pokémon trafia tutaj. Zagraj pierwszy pojedynek, by zacząć kolekcję.",
     dexEmptyCta: "ZAGRAJ PIERWSZY POJEDYNEK",
     dexEmptyHint: "WSKAZÓWKA · NAZWY PO ANGIELSKU",
-    // Field-loss toast (design 02a)
-    lossToastPill: "UTRATA POLA",
-    lossToastSeized: "PRZEJĄŁ TWOJE POLE",
-    lossToastRecover: "odzyskaj wkrótce",
     // Tutorial overlay (design 11)
     tutFirstTimePill: "PIERWSZY RAZ? PROWADŹMY.",
     tutStep1Title: "TWÓJ POSTĘP",
@@ -151,7 +151,6 @@ export const translations = {
     tutStep2Body: "Pola z pulsującą czerwoną odznaką możesz wyzwać na pojedynek.",
     tutStep3Title: "POKÉDEX I POMOC",
     tutStep3Body: "Wrócisz do nich z dolnego paska, gdy zamkniesz tutorial.",
-    tutSkipLink: "POMIŃ",
     tutStartBtn: "ZACZNIJ",
     // Board View (Graj) & Map Tiles
     boardTitle: "PODBÓJ REGIONU KANTO",
@@ -288,6 +287,7 @@ export const translations = {
     logReset2: "Ruszaj do boju, aby zdobyć całą planszę!",
     logVictory: "Zwycięstwo! Przejąłeś terytorium należące do {name}!",
     logDefeat: "Porażka! {name} obronił się, a Twój czas się skończył. Pokemony Cię zaskoczyły!",
+    logFieldLost: "{name} przejął Twoje pole #{cellId}. Odzyskaj je, gdy będziesz gotów!",
     logWarnAttack: "UWAGA! {name} wyzywa Twoje terytorium! Musisz się bronić!",
     logAiFight: "Walka AI: {attacker} zaatakował {defender}. Zwyciężył {winner} i przejął terytorium!"
   },
@@ -361,6 +361,10 @@ export const translations = {
     cardBackToPokedex: "BACK TO POKÉDEX",
     cardEntryLabel: "ENTRY",
     cardCategoryPlaceholder: "KANTO POKÉMON",
+    cardHeight: "HEIGHT",
+    cardWeight: "WEIGHT",
+    cardGen: "GEN",
+    cardGenI: "I",
     // Help (design 05)
     helpCardTitle: "HOW TO PLAY?",
     helpCardSubtitle: "3 chapters · ~1 min read",
@@ -431,10 +435,6 @@ export const translations = {
     dexEmptyBody: "Every correctly named Pokémon lands here. Play your first duel to start the collection.",
     dexEmptyCta: "PLAY YOUR FIRST DUEL",
     dexEmptyHint: "TIP · NAMES IN ENGLISH",
-    // Field-loss toast (design 02a)
-    lossToastPill: "FIELD LOST",
-    lossToastSeized: "SEIZED YOUR FIELD",
-    lossToastRecover: "win it back soon",
     // Tutorial overlay (design 11)
     tutFirstTimePill: "FIRST TIME? LET'S WALK.",
     tutStep1Title: "YOUR PROGRESS",
@@ -443,7 +443,6 @@ export const translations = {
     tutStep2Body: "Fields with a pulsing red badge can be challenged to a duel.",
     tutStep3Title: "POKÉDEX & HELP",
     tutStep3Body: "Reach them from the bottom bar once you close this tutorial.",
-    tutSkipLink: "SKIP",
     tutStartBtn: "BEGIN",
     // Board View (Graj) & Map Tiles
     boardTitle: "KANTO REGION CONQUEST",
@@ -580,6 +579,7 @@ export const translations = {
     logReset2: "Charge into battle to seize the entire board!",
     logVictory: "Victory! You conquered the territory belonging to {name}!",
     logDefeat: "Defeat! {name} defended successfully, and your time ran out. The Pokémon caught you by surprise!",
+    logFieldLost: "{name} seized your field #{cellId}. Win it back when you're ready!",
     logWarnAttack: "WARNING! {name} challenges your territory! You must defend!",
     logAiFight: "AI Battle: {attacker} attacked {defender}. {winner} won and conquered the territory!"
   }

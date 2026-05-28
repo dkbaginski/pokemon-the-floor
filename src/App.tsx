@@ -14,7 +14,6 @@ import {
   Swords,
   Play,
   ShieldCheck,
-  Activity,
   ChevronRight,
   X
 } from "lucide-react";
@@ -59,7 +58,6 @@ export default function App() {
   const [round, setRound] = useState<number>(1);
   const [gameStartTime, setGameStartTime] = useState<number>(() => Date.now());
   const [historyTab, setHistoryTab] = useState<"goals" | "duels">("goals");
-  const [lossToast, setLossToast] = useState<{ botNumber: number; cellId: number } | null>(null);
   const [tutorialSeen, setTutorialSeen] = useState<boolean>(() => {
     return typeof window !== "undefined" && localStorage.getItem("the_floor_tutorial_seen") === "1";
   });
@@ -345,30 +343,29 @@ export default function App() {
         setScreen("duel_win");
       }
     } else {
-      // Defense duel lost — AI actually seizes selectedCell + we queue a toast for the board.
       if (defenseMode && selectedCell && selectedOpponent) {
+        // Defense duel lost — AI actually seizes selectedCell. The loss is
+        // surfaced on the duel_lose screen (08) + a permanent entry in the
+        // battle history; no transient toast on the board.
         const conqueredById = selectedOpponent.id;
         const updatedGrid = grid.map((cell) =>
           cell.id === selectedCell.id ? { ...cell, currentOwnerId: conqueredById } : cell
         );
         setGrid(updatedGrid);
         saveGridToStorage(updatedGrid);
-        setLossToast({ botNumber: selectedOpponent.number, cellId: selectedCell.id });
+        setLogs((prev) => [
+          { key: "logFieldLost", params: { name: botName(selectedOpponent), cellId: String(selectedCell.id) } },
+          ...prev
+        ].slice(0, 10));
+      } else {
+        setLogs((prev) => [
+          { key: "logDefeat", params: { name: botName(selectedOpponent) } },
+          ...prev
+        ].slice(0, 10));
       }
-      setLogs((prev) => [
-        { key: "logDefeat", params: { name: botName(selectedOpponent) } },
-        ...prev
-      ].slice(0, 10));
       setScreen("duel_lose");
     }
   };
-
-  // Auto-dismiss loss toast after 6s.
-  useEffect(() => {
-    if (!lossToast) return;
-    const t = setTimeout(() => setLossToast(null), 6000);
-    return () => clearTimeout(t);
-  }, [lossToast]);
 
   // --- Return to board safely + simulating board turn ---
   const handleReturnToBoardWithSimulation = () => {
@@ -683,7 +680,7 @@ export default function App() {
               </div>
 
               {/* Inner white card — counter + ATAKI pill + progress pips */}
-              <div className="rounded-xl bg-white border-2 border-[#5A3A2A] px-2.5 py-1.5 space-y-1.5">
+              <div data-tutorial-target="progress" className="rounded-xl bg-white border-2 border-[#5A3A2A] px-2.5 py-1.5 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-baseline gap-1.5 min-w-0">
                     <span className="font-mono font-black text-lg text-[#5A3A2A] leading-none">
@@ -714,39 +711,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Field-loss toast (design 02a) */}
-            {lossToast && (
-              <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#E95050] text-white px-3 py-2 shadow-[0_3px_0_#5A3A2A] flex items-start gap-2 relative overflow-hidden shrink-0">
-                <div className="w-8 h-8 shrink-0 rounded-xl bg-white border-2 border-[#5A3A2A] flex items-center justify-center">
-                  <X className="h-4 w-4 text-[#E95050]" strokeWidth={3} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[8px] font-black uppercase tracking-widest text-white/85">
-                    {t.lossToastPill}
-                  </div>
-                  <div className="font-display font-black text-xs italic uppercase truncate">
-                    {t.botLabel} {lossToast.botNumber} {t.lossToastSeized}
-                  </div>
-                  <div className="text-[9px] font-bold text-white/85 mt-0.5">
-                    #{String(lossToast.cellId).padStart(3, "0")} · {t.lossToastRecover}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setLossToast(null)}
-                  className="w-6 h-6 shrink-0 rounded-full bg-white/15 hover:bg-white/30 border border-white/30 flex items-center justify-center cursor-pointer transition"
-                  aria-label="close"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-                {/* striped bottom accent */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 h-1"
-                  style={{
-                    backgroundImage: "repeating-linear-gradient(45deg, #FFFFFF 0 6px, #1B2840 6px 12px)"
-                  }}
-                />
-              </div>
-            )}
 
             {/* Defense alert */}
             {selectedCell && defenseMode && selectedOpponent && (
@@ -884,7 +848,7 @@ export default function App() {
                   <div className="flex flex-col items-center gap-1.5">
                     <div className={`w-full aspect-square rounded-2xl border-2 border-[#5A3A2A] flex items-center justify-center shadow-[0_2px_0_#5A3A2A] overflow-hidden ${selectedOpponent.avatarColor || "bg-indigo-500"}`}>
                       <img
-                        src={getPokemonImageUrl(selectedOpponent.pokemonPool[0] || 1)}
+                        src={getPokemonImageUrl(selectedOpponent.avatarPokemonId)}
                         alt=""
                         referrerPolicy="no-referrer"
                         className="h-4/5 w-4/5 object-contain"
@@ -1260,7 +1224,7 @@ export default function App() {
       )}
 
       {showBattleLog && (() => {
-        const duelLogs = logs.filter((l) => l.key === "logVictory" || l.key === "logDefeat" || l.key === "logAiFight");
+        const duelLogs = logs.filter((l) => l.key === "logVictory" || l.key === "logDefeat" || l.key === "logAiFight" || l.key === "logFieldLost");
         const elapsedMs = Date.now() - gameStartTime;
         const elapsedMin = Math.floor(elapsedMs / 60000);
         const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
@@ -1276,7 +1240,7 @@ export default function App() {
             <div className="shrink-0 px-3 pt-3 pb-2">
               <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#1B2840] p-3 flex items-start gap-2">
                 <div className="w-9 h-9 shrink-0 rounded-xl bg-[#FFD84D] border-2 border-[#5A3A2A] flex items-center justify-center shadow-[0_2px_0_#5A3A2A]">
-                  <Activity className="h-4 w-4 text-[#24456B]" />
+                  <Trophy className="h-4 w-4 text-[#24456B]" />
                 </div>
                 <div className="flex-1">
                   <h2 className="font-display font-black text-sm italic uppercase text-white leading-none">{t.histHeaderTitle}</h2>
@@ -1378,8 +1342,9 @@ export default function App() {
                   const messageText = renderLogMessage(log);
                   const isWin = log.key === "logVictory";
                   const isLose = log.key === "logDefeat";
-                  const iconEmoji = isLose ? "💀" : isWin ? "🏆" : "⚔️";
-                  const accent = isWin ? "bg-[#A9E6CF]" : isLose ? "bg-[#FF7A62]" : "bg-[#BDEBFF]";
+                  const isFieldLost = log.key === "logFieldLost";
+                  const iconEmoji = isFieldLost ? "🚩" : isLose ? "💀" : isWin ? "🏆" : "⚔️";
+                  const accent = isWin ? "bg-[#A9E6CF]" : (isLose || isFieldLost) ? "bg-[#FF7A62]" : "bg-[#BDEBFF]";
 
                   return (
                     <div
@@ -1556,6 +1521,7 @@ export default function App() {
         const inactiveColor = "rgba(90,58,42,0.55)";
         return (
           <footer
+            data-tutorial-target="nav"
             className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2 px-6 flex justify-around items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
             style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
           >
@@ -1607,12 +1573,26 @@ export default function App() {
 
       {showResetConfirm && (
         <div className="fixed inset-0 z-[60] bg-cocoa/55 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-xs bg-white border-2 border-[#5A3A2A] rounded-[24px] p-4 text-center space-y-3 shadow-[0_6px_0_#5A3A2A] relative overflow-hidden">
+          <div className="w-full max-w-sm w-[calc(100%-2rem)] bg-white border-2 border-[#5A3A2A] rounded-[24px] px-6 py-4 text-center space-y-3 shadow-[0_6px_0_#5A3A2A] relative overflow-hidden">
             {/* Striped top accent — irreversible signal */}
             <div
               className="absolute top-0 left-0 right-0 h-2"
               style={{
                 backgroundImage: "repeating-linear-gradient(45deg, #E95050 0 8px, #FFFFFF 8px 16px)"
+              }}
+            />
+            {/* Striped side accents (design 08a) — vertical perforation framing
+                the modal on both edges, reinforcing the "irreversible" signal. */}
+            <div
+              className="absolute top-0 bottom-0 left-0 w-2 pointer-events-none"
+              style={{
+                backgroundImage: "repeating-linear-gradient(0deg, #E95050 0 8px, #FFFFFF 8px 16px)"
+              }}
+            />
+            <div
+              className="absolute top-0 bottom-0 right-0 w-2 pointer-events-none"
+              style={{
+                backgroundImage: "repeating-linear-gradient(0deg, #E95050 0 8px, #FFFFFF 8px 16px)"
               }}
             />
 
