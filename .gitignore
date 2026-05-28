@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Claude Code — share launch.json, ignore local-only settings
+.claude/settings.local.json
+.claude/*.local.json
