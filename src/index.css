@@ -119,6 +119,12 @@
   pointer-events: none; /* Avoid clicks while animating */
 }
 
+/* Subtle dotted backdrop (intro screen) — cocoa dots on cream. */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle at 1px 1px, rgba(90, 58, 42, 0.08) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+
 /* Fluid Mobile Ergonomic utilities to prevent overflows and dead-zones */
 .fluid-py-container {
   padding-top: clamp(0.5rem, 2vh, 1.5rem);

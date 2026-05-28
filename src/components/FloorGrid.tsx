@@ -36,6 +36,16 @@ interface ComponentInfo {
   // sitting next to the player, only the touching cell satisfies the
   // per-cell adjacency check, but the territory as a whole is reachable).
   isAdjacent: boolean;
+  // Bounding box (inclusive) of the polygon — used to centre the owner label
+  // across the whole merged shape when it forms a solid rectangle.
+  minRow: number;
+  maxRow: number;
+  minCol: number;
+  maxCol: number;
+  // True when the polygon fully fills its bounding box (a solid rectangle).
+  // For rectangles we centre the label on the bbox; otherwise (L-shapes etc.)
+  // we fall back to the centroid anchor cell so the label stays inside.
+  isRect: boolean;
 }
 
 interface GridItem {
@@ -133,12 +143,22 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
       if (c.row > best.row) return best;
       return c.col > best.col ? c : best;
     }, cells[0]);
+    const minRow = Math.min(...cells.map((c) => c.row));
+    const maxRow = Math.max(...cells.map((c) => c.row));
+    const minCol = Math.min(...cells.map((c) => c.col));
+    const maxCol = Math.max(...cells.map((c) => c.col));
+    const isRect = cells.length === (maxRow - minRow + 1) * (maxCol - minCol + 1);
     const info: ComponentInfo = {
       ownerId: start.currentOwnerId,
       anchorCellId: anchor.id,
       cornerCellId: corner.id,
       size: cells.length,
-      isAdjacent
+      isAdjacent,
+      minRow,
+      maxRow,
+      minCol,
+      maxCol,
+      isRect
     };
     for (const c of cells) result.set(c.id, info);
   }
@@ -380,18 +400,10 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   <div className="absolute -bottom-[5px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[3px] bg-[#5A3A2A] pointer-events-none" />
                 )}
 
-                {/* Anchor overlay — label/sprite centered inside the anchor cell.
-                    The anchor itself is chosen as the centroid of the polygon
-                    (see buildComponents), so a 1×1 overlay is always inside
-                    the territory and never overflows into neighbour tiles. */}
-                {item.isAnchor && isPlayerTile && (
-                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 sm:gap-1">
-                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
-                    <span className="font-display font-black text-[8px] sm:text-[9px] text-[#24456B] uppercase tracking-wider leading-none whitespace-nowrap">
-                      {t.boardPlayerNick || t.playerTileLabel}
-                    </span>
-                  </div>
-                )}
+                {/* Owner labels (player ⚡+nick, bot sprite+name) are rendered in
+                    a separate polygon-spanning layer after the cells — see the
+                    label layer below the grid map. This keeps the label centred
+                    over the whole merged shape instead of a single anchor cell. */}
 
                 {/* ID-pill (design 02) — small white pill with the tile number
                     in the top-left of the anchor cell. Rendered once per
@@ -402,28 +414,6 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   <span className="absolute top-1 left-1 z-20 font-mono font-black text-[8px] bg-white border border-[#5A3A2A] rounded px-1 text-[#5A3A2A] pointer-events-none leading-none py-0.5">
                     {String(ownerBot.number).padStart(2, "0")}
                   </span>
-                )}
-
-                {item.isAnchor && !isPlayerTile && ownerBot && (
-                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-0.5 px-1">
-                    <img
-                      src={getPokemonImageUrl(ownerBot.avatarPokemonId)}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className={`h-7 w-7 sm:h-9 sm:w-9 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}
-                      style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.2))" }}
-                    />
-                    <span
-                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
-                      style={{
-                        fontSize: "clamp(8px, 1vh, 10px)",
-                        color: polygonAdjacent ? "#24456B" : "#5A3A2A",
-                        WebkitFontSmoothing: "antialiased",
-                      }}
-                    >
-                      {t.botLabel} {ownerBot.number}
-                    </span>
-                  </div>
                 )}
 
                 {/* (No echo label on non-anchor cells — polygon-level adjacency
@@ -471,6 +461,71 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                   </div>
                 )}
               </button>
+            );
+          })}
+
+          {/* Owner-label layer — one label per polygon, placed on the grid so it
+              spans the whole merged shape. For a solid rectangle it spans the
+              bounding box (perfectly centred even on 2-wide / 2-tall merges);
+              for irregular shapes it falls back to the centroid anchor cell so
+              the label never floats outside the territory. pointer-events-none
+              lets clicks fall through to the tile buttons beneath; z-[15] keeps
+              labels above player tiles (z-10) but below badges (z-20)/hover. */}
+          {Array.from(
+            new Map(gridItems.map((it) => [it.component.anchorCellId, it.component])).values()
+          ).map((comp) => {
+            const isPlayer = comp.ownerId === "player";
+            const ownerBot = BOTS[comp.ownerId];
+            if (!isPlayer && !ownerBot) return null;
+            const isAdjacent = comp.isAdjacent;
+            const isLocked = !isPlayer && !isAdjacent;
+            const spanRect = comp.isRect && comp.size > 1;
+            const anchor = grid.find((g) => g.id === comp.anchorCellId)!;
+            const placement = spanRect
+              ? {
+                  gridRow: `${comp.minRow + 1} / ${comp.maxRow + 2}`,
+                  gridColumn: `${comp.minCol + 1} / ${comp.maxCol + 2}`,
+                }
+              : {
+                  gridRow: `${anchor.row + 1} / span 1`,
+                  gridColumn: `${anchor.col + 1} / span 1`,
+                };
+
+            return (
+              <div
+                key={`label-${comp.anchorCellId}`}
+                className="z-[15] pointer-events-none flex flex-col items-center justify-center gap-0.5 px-1"
+                style={placement}
+              >
+                {isPlayer ? (
+                  <>
+                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
+                    <span className="font-display font-black text-[8px] sm:text-[9px] text-[#24456B] uppercase tracking-wider leading-none whitespace-nowrap">
+                      {t.boardPlayerNick || t.playerTileLabel}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <img
+                      src={getPokemonImageUrl(ownerBot.avatarPokemonId)}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className={`h-7 w-7 sm:h-9 sm:w-9 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}
+                      style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.2))" }}
+                    />
+                    <span
+                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
+                      style={{
+                        fontSize: "clamp(8px, 1vh, 10px)",
+                        color: isAdjacent ? "#24456B" : "#5A3A2A",
+                        WebkitFontSmoothing: "antialiased",
+                      }}
+                    >
+                      {t.botLabel} {ownerBot.number}
+                    </span>
+                  </>
+                )}
+              </div>
             );
           })}
         </div>

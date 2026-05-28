@@ -480,9 +480,10 @@ export default function App() {
       <header className="h-16 sticky top-0 z-30 bg-cream-base border-b-2 border-cocoa/30 px-4 flex items-center justify-between font-sans select-none shrink-0">
         <div
           onClick={() => {
-            setScreen("start");
+            setScreen("board");
             setShowPokedex(false);
             setShowHelp(false);
+            setShowBattleLog(false);
           }}
           className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
           title={t.tipBackToMenu}
@@ -532,131 +533,162 @@ export default function App() {
 
         {/* SCREEN 1: START SCREEN (design 01) */}
         {screen === "start" && (
-          <div className="w-full h-full flex flex-col gap-2 sm:gap-3 px-1 pt-1 pb-2 text-left font-sans select-none max-w-sm mx-auto overflow-hidden">
+          <div className="relative w-full h-full overflow-hidden">
+            {/* Subtle dotted backdrop */}
+            <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
 
-            {/* Red region banner — "REGION KANTO · GEN I"  /  "1-151" */}
-            <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#E95050] text-white px-3 py-1.5 flex items-center justify-between shadow-[0_3px_0_#5A3A2A]">
-              <span className="font-display font-black text-[11px] uppercase tracking-wider italic">
-                {t.introRegionLabel}
-              </span>
-              <span className="font-mono font-black text-[10px] tracking-wider opacity-90">
-                {t.introRange}
-              </span>
-            </div>
+            <div className="relative w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 text-left font-sans select-none max-w-sm mx-auto overflow-hidden">
 
-            {/* Yellow hero card — Pikachu + type chip */}
-            <div className="shrink-0 relative rounded-3xl border-2 border-[#5A3A2A] bg-[#FFD84D] shadow-[0_4px_0_#5A3A2A] overflow-hidden">
-              <div className="absolute top-2 left-2 z-10 bg-[#1B2840] text-[#FFD84D] font-mono font-black text-[10px] px-2 py-0.5 rounded-md tracking-wider">
-                #025
-              </div>
-              <div className="absolute top-2 right-2 z-10 bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] font-black text-[9px] px-2 py-0.5 rounded-full tracking-wider uppercase shadow-[0_1px_0_#5A3A2A]">
-                {t.typeElectric}
-              </div>
-              <div className="flex items-center justify-center" style={{ height: "clamp(110px, 19vh, 170px)" }}>
-                <img
-                  src={getPokemonImageUrl(25)}
-                  alt="Pikachu"
-                  referrerPolicy="no-referrer"
-                  className="object-contain h-full w-auto max-h-full animate-hover sticker-hover"
-                  style={{ filter: "drop-shadow(0 4px 6px rgba(90,58,42,0.2))" }}
-                />
-              </div>
-            </div>
-
-            {/* Headline block */}
-            <div className="shrink-0 text-center space-y-0.5">
-              <span className="text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">
-                {t.introEyebrow}
-              </span>
-              <h1 className="font-display text-[26px] sm:text-3xl font-black tracking-tight leading-none italic uppercase text-[#5A3A2A]">
-                THE FLOOR
-              </h1>
-              <div className="font-display text-base sm:text-lg font-black italic uppercase text-[#E95050] tracking-tight leading-none">
-                {t.introTitleSecondary}
-              </div>
-              <p className="text-[11px] text-[#5A3A2A]/80 max-w-[300px] mx-auto leading-snug font-sans font-semibold pt-1">
-                {t.subTitle}
-              </p>
-            </div>
-
-            {/* "ZAPAMIĘTAJ TYLKO TO" card with 3 mini-cards */}
-            <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-white px-3 py-2 shadow-[0_3px_0_#5A3A2A]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#5A3A2A]">
-                  {t.introCardsTitle}
-                </span>
-                <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">
-                  {t.introCardsCount}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {/* Card 1 — Timer */}
-                <div className="rounded-xl border-2 border-[#5A3A2A] bg-[#FFF4DF] px-1 py-1.5 text-center shadow-[0_2px_0_#5A3A2A]">
-                  <div className="font-display font-black text-base text-[#5A3A2A] leading-none">
-                    {t.introCardTimerValue}
-                  </div>
-                  <div className="text-[8px] font-black uppercase tracking-wider text-[#24456B] mt-0.5">
-                    {t.introCardTimerLabel}
-                  </div>
-                  <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-1 font-bold">
-                    {t.introCardTimerDesc}
-                  </div>
+              {/* HERO — single yellow radial-gradient card (header + Pikachu sub-card + title) */}
+              <div
+                className="flex-1 min-h-0 relative rounded-3xl border-2 border-[#5A3A2A] shadow-[0_4px_0_#5A3A2A] overflow-hidden flex flex-col"
+                style={{ background: "radial-gradient(circle at 50% 30%, #FFE26A 0%, #FFD84D 45%, #E8B81E 100%)" }}
+              >
+                {/* Red stripe header inside the hero card */}
+                <div className="shrink-0 bg-[#E95050] text-white px-3 py-1.5 flex items-center justify-between border-b-2 border-[#5A3A2A]">
+                  <span className="font-display font-black text-[11px] uppercase tracking-wider italic">
+                    {t.introRegionLabel}
+                  </span>
+                  <span className="font-mono font-black text-[10px] tracking-wider opacity-90">
+                    {t.introRange}
+                  </span>
                 </div>
-                {/* Card 2 — Language */}
-                <div className="rounded-xl border-2 border-[#5A3A2A] bg-[#BDEBFF] px-1 py-1.5 text-center shadow-[0_2px_0_#5A3A2A]">
-                  <div className="font-display font-black text-base text-[#24456B] leading-none">
-                    {t.introCardLangValue}
+
+                {/* Hero body */}
+                <div className="flex-1 min-h-0 flex flex-col gap-1.5 p-2.5">
+                  {/* Pikachu sub-card — Kanto landscape backdrop */}
+                  <div
+                    className="flex-1 min-h-0 relative rounded-2xl border-2 border-[#5A3A2A] overflow-hidden shadow-[0_2px_0_#5A3A2A]"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to bottom, rgba(189,235,255,0.30) 0%, rgba(255,255,255,0.05) 60%), url(/kanto.png)",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center"
+                    }}
+                  >
+                    <div className="absolute top-2 left-2 z-10 bg-[#1B2840] text-[#FFD84D] font-mono font-black text-[10px] px-2 py-0.5 rounded-md tracking-wider">
+                      #025
+                    </div>
+                    <div className="absolute top-2 right-2 z-10 bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] font-black text-[9px] px-2 py-0.5 rounded-full tracking-wider uppercase shadow-[0_1px_0_#5A3A2A]">
+                      {t.typeElectric}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center p-2">
+                      <img
+                        src={getPokemonImageUrl(25)}
+                        alt="Pikachu"
+                        referrerPolicy="no-referrer"
+                        className="object-contain h-full w-auto max-h-full animate-hover sticker-hover"
+                        style={{ filter: "drop-shadow(0 4px 6px rgba(90,58,42,0.35))" }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-[8px] font-black uppercase tracking-wider text-[#24456B] mt-0.5">
-                    {t.introCardLangLabel}
-                  </div>
-                  <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-1 font-bold">
-                    {t.introCardLangDesc}
-                  </div>
-                </div>
-                {/* Card 3 — Penalty */}
-                <div className="rounded-xl border-2 border-[#5A3A2A] bg-[#FFE0DA] px-1 py-1.5 text-center shadow-[0_2px_0_#5A3A2A]">
-                  <div className="font-display font-black text-base text-[#E95050] leading-none">
-                    {t.introCardPenaltyValue}
-                  </div>
-                  <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">
-                    {t.introCardPenaltyLabel}
-                  </div>
-                  <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-1 font-bold">
-                    {t.introCardPenaltyDesc}
+
+                  {/* Title block */}
+                  <div className="shrink-0 text-center">
+                    <span className="block text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">
+                      {t.introEyebrow}
+                    </span>
+                    <h1 className="font-display text-[26px] sm:text-3xl font-black tracking-tight leading-none italic uppercase text-[#5A3A2A]">
+                      THE FLOOR
+                    </h1>
+                    <div className="font-display text-base sm:text-lg font-black italic uppercase text-[#E95050] tracking-tight leading-none">
+                      {t.introTitleSecondary}
+                    </div>
+                    <p className="text-[11px] text-[#5A3A2A]/85 max-w-[300px] mx-auto leading-snug font-sans font-semibold pt-1">
+                      {t.subTitle}
+                    </p>
                   </div>
                 </div>
               </div>
-              <div className="mt-1.5 pt-1.5 border-t border-[#5A3A2A]/15 flex items-center justify-between">
-                <span className="text-[9px] text-[#5A3A2A]/60 font-bold">{t.introFullRulesLink}</span>
+
+              {/* "ZAPAMIĘTAJ TYLKO TO" — fixed-height tip cards (stable across languages) */}
+              <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-white px-3 py-2 shadow-[0_3px_0_#5A3A2A]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#5A3A2A]">
+                    {t.introCardsTitle}
+                  </span>
+                  <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">
+                    {t.introCardsCount}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {/* Card 1 — Timer */}
+                  <div className="h-[96px] rounded-xl border-2 border-[#5A3A2A] bg-white px-1 py-1.5 flex flex-col items-center text-center shadow-[0_2px_0_#5A3A2A]">
+                    <div className="font-display font-black text-base leading-none text-[#FFD84D] bg-[#1B2840] border-2 border-[#5A3A2A] rounded-lg px-2.5 py-1">
+                      {t.introCardTimerValue}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/55 mt-0.5">
+                      {t.introCardTimerUnit}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#24456B] mt-0.5">
+                      {t.introCardTimerLabel}
+                    </div>
+                    <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-auto font-bold h-6 flex items-center justify-center">
+                      {t.introCardTimerDesc}
+                    </div>
+                  </div>
+                  {/* Card 2 — Language */}
+                  <div className="h-[96px] rounded-xl border-2 border-[#5A3A2A] bg-white px-1 py-1.5 flex flex-col items-center text-center shadow-[0_2px_0_#5A3A2A]">
+                    <div className="font-display font-black text-base leading-none text-white bg-[#24456B] border-2 border-[#5A3A2A] rounded-lg px-2.5 py-1">
+                      {t.introCardLangValue}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/55 mt-0.5">
+                      {t.introCardLangUnit}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#24456B] mt-0.5">
+                      {t.introCardLangLabel}
+                    </div>
+                    <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-auto font-bold h-6 flex items-center justify-center">
+                      {t.introCardLangDesc}
+                    </div>
+                  </div>
+                  {/* Card 3 — Penalty */}
+                  <div className="h-[96px] rounded-xl border-2 border-[#5A3A2A] bg-white px-1 py-1.5 flex flex-col items-center text-center shadow-[0_2px_0_#5A3A2A]">
+                    <div className="font-display font-black text-base leading-none text-white bg-[#E95050] border-2 border-[#5A3A2A] rounded-lg px-2.5 py-1">
+                      {t.introCardPenaltyValue}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A]/55 mt-0.5">
+                      {t.introCardPenaltyUnit}
+                    </div>
+                    <div className="text-[8px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">
+                      {t.introCardPenaltyLabel}
+                    </div>
+                    <div className="text-[8px] text-[#5A3A2A]/75 leading-tight mt-auto font-bold h-6 flex items-center justify-center">
+                      {t.introCardPenaltyDesc}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-1.5 pt-1.5 border-t border-[#5A3A2A]/15 flex items-center justify-between">
+                  <span className="text-[9px] text-[#5A3A2A]/60 font-bold">{t.introFullRulesLink}</span>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="text-[9px] font-black uppercase tracking-wider text-[#24456B] flex items-center gap-0.5 hover:underline cursor-pointer"
+                  >
+                    {t.introHelpInline}
+                    <ChevronRight className="h-3 w-3 stroke-[3]" />
+                  </button>
+                </div>
+              </div>
+
+              {/* CTAs */}
+              <div className="shrink-0 space-y-1.5">
+                <button
+                  onClick={() => setScreen("board")}
+                  className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2"
+                >
+                  <span>{t.startBtn}</span>
+                  <Play className="h-4 w-4 fill-white text-white" />
+                </button>
                 <button
                   onClick={() => setShowHelp(true)}
-                  className="text-[9px] font-black uppercase tracking-wider text-[#24456B] flex items-center gap-0.5 hover:underline cursor-pointer"
+                  className="w-full btn-core-dark py-2.5 flex items-center justify-center gap-1.5"
                 >
-                  {t.introHelpInline}
-                  <ChevronRight className="h-3 w-3 stroke-[3]" />
+                  <HelpCircle className="h-3.5 w-3.5 text-pokemon-navy" />
+                  <span>{t.introHelpBtnSecondary}</span>
                 </button>
               </div>
-            </div>
 
-            {/* CTAs */}
-            <div className="shrink-0 mt-auto space-y-1.5">
-              <button
-                onClick={() => setScreen("board")}
-                className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2"
-              >
-                <span>{t.startBtn}</span>
-                <Play className="h-4 w-4 fill-white text-white" />
-              </button>
-              <button
-                onClick={() => setShowHelp(true)}
-                className="w-full btn-core-dark py-2.5 flex items-center justify-center gap-1.5"
-              >
-                <HelpCircle className="h-3.5 w-3.5 text-pokemon-navy" />
-                <span>{t.introHelpBtnSecondary}</span>
-              </button>
             </div>
-
           </div>
         )}
 
