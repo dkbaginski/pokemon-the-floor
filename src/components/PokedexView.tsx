@@ -6,6 +6,7 @@ import { EyeIcon, ProgressRing, PokeBallLogoIcon } from "./icons";
 interface PokedexViewProps {
   unlockedIds: number[]; // represents CAUGHT
   seenIds?: number[];    // represents SEEN
+  caughtAt?: Record<number, number>; // id → epoch ms first caught (may be absent for legacy saves)
   onClose: () => void;
   playerActiveTypes?: string[];
   language: "pl" | "en";
@@ -254,7 +255,7 @@ function getPokemonDescription(id: number, name: string, types: string[], langua
 }
 
 // --- GŁÓWNY KOMPONENT WIDOKU POKÉDEXU ---
-export default function PokedexView({ unlockedIds, seenIds = [], onClose, playerActiveTypes = [], language, t }: PokedexViewProps) {
+export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, onClose, playerActiveTypes = [], language, t }: PokedexViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedPokeDetail, setSelectedPokeDetail] = useState<Pokemon | null>(null);
@@ -494,8 +495,13 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
         const primaryType = selectedPokeDetail.types[0] || "normal";
         const typeBgHex = POKEMON_TYPES_PL[primaryType]?.bgHex || "#FFD84D";
         const isPokeCaught = unlockedSet.has(selectedPokeDetail.id);
-        const entryNumber = isPokeCaught
-          ? [...unlockedIds].indexOf(selectedPokeDetail.id) + 1
+        const caughtTs = caughtAt[selectedPokeDetail.id];
+        const caughtDate = caughtTs
+          ? new Intl.DateTimeFormat(language === "pl" ? "pl-PL" : "en-US", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            }).format(new Date(caughtTs))
           : null;
 
         return (
@@ -606,7 +612,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], onClose, player
                         <PokeBallLogoIcon size={16} ink="#5A3A2A" red="#DC2630" />
                       </span>
                       {t.statusCaught}
-                      {entryNumber !== null && <> · {t.cardEntryLabel} #{String(entryNumber).padStart(3, "0")}</>}
+                      {caughtDate && <> · {caughtDate}</>}
                     </span>
                   ) : (
                     <span className="text-[#5A3A2A] font-black tracking-wider uppercase text-[10px] flex items-center gap-1.5 bg-[#BDEBFF] border-2 border-[#5A3A2A] px-3 py-1 rounded-full shadow-[0_2px_0_#5A3A2A]">

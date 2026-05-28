@@ -54,6 +54,10 @@ export default function App() {
   const [grid, setGrid] = useState<GridCell[]>(INITIAL_GRID);
   const [unlockedPokemonIds, setUnlockedPokemonIds] = useState<number[]>([]);
   const [seenPokemonIds, setSeenPokemonIds] = useState<number[]>([]);
+  // id → epoch ms when first caught. Runs in parallel to unlockedPokemonIds so
+  // the catch-order array logic stays untouched. Pokémon caught before this was
+  // introduced simply have no entry (badge falls back to the plain status).
+  const [caughtAtMap, setCaughtAtMap] = useState<Record<number, number>>({});
   const [shownLog, setShownLog] = useState<number[]>([]);
   const [round, setRound] = useState<number>(1);
   const [gameStartTime, setGameStartTime] = useState<number>(() => Date.now());
@@ -158,6 +162,16 @@ export default function App() {
       setUnlockedPokemonIds([]);
     }
 
+    const savedCaughtAt = localStorage.getItem("the_floor_pokemon_caught_at");
+    if (savedCaughtAt) {
+      try {
+        const parsed = JSON.parse(savedCaughtAt);
+        if (parsed && typeof parsed === "object") setCaughtAtMap(parsed);
+      } catch (e) {
+        setCaughtAtMap({});
+      }
+    }
+
     const savedSeen = localStorage.getItem("the_floor_pokemon_seen");
     if (savedSeen) {
       try {
@@ -216,6 +230,12 @@ export default function App() {
       if (prev.includes(id)) return prev;
       const updated = [...prev, id];
       localStorage.setItem("the_floor_pokemon_pokedex", JSON.stringify(updated));
+      return updated;
+    });
+    setCaughtAtMap((prev) => {
+      if (prev[id]) return prev;
+      const updated = { ...prev, [id]: Date.now() };
+      localStorage.setItem("the_floor_pokemon_caught_at", JSON.stringify(updated));
       return updated;
     });
     handleSeePokemon(id);
@@ -1248,6 +1268,7 @@ export default function App() {
         <PokedexView
           unlockedIds={unlockedPokemonIds}
           seenIds={seenPokemonIds}
+          caughtAt={caughtAtMap}
           onClose={() => setShowPokedex(false)}
           playerActiveTypes={[]}
           language={language}
