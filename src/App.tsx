@@ -15,6 +15,7 @@ import {
   Play,
   ShieldCheck,
   ChevronRight,
+  ChevronLeft,
   X
 } from "lucide-react";
 import {
@@ -29,7 +30,10 @@ import {
   SwordsCrossedIcon
 } from "./components/icons";
 
-type ScreenState = "start" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
+type ScreenState = "start" | "name_entry" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
+
+// Keep player nicknames short so they never overflow the tiny board tiles.
+const PLAYER_NAME_MAX = 12;
 
 const SHOWN_LOG_MAX = 50;
 
@@ -48,6 +52,21 @@ export default function App() {
   };
 
   const { t, tp } = createTranslator(language);
+
+  // --- Player identity ---
+  const [playerName, setPlayerName] = useState<string>(() => {
+    const saved = localStorage.getItem("the_floor_player_name");
+    return saved ? saved.slice(0, PLAYER_NAME_MAX) : "";
+  });
+  // Draft value bound to the name-entry input before it is committed.
+  const [nameDraft, setNameDraft] = useState<string>("");
+
+  const savePlayerName = (raw: string) => {
+    const clean = raw.trim().slice(0, PLAYER_NAME_MAX);
+    setPlayerName(clean);
+    if (clean) localStorage.setItem("the_floor_player_name", clean);
+    else localStorage.removeItem("the_floor_player_name");
+  };
 
   // --- Game Core States ---
   const [screen, setScreen] = useState<ScreenState>("start");
@@ -693,7 +712,14 @@ export default function App() {
               {/* CTAs */}
               <div className="shrink-0 space-y-1.5">
                 <button
-                  onClick={() => setScreen("board")}
+                  onClick={() => {
+                    if (playerName) {
+                      setScreen("board");
+                    } else {
+                      setNameDraft("");
+                      setScreen("name_entry");
+                    }
+                  }}
                   className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2"
                 >
                   <span>{t.startBtn}</span>
@@ -708,6 +734,71 @@ export default function App() {
                 </button>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {screen === "name_entry" && (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4 px-2 font-sans select-none max-w-sm mx-auto text-center">
+            {/* Pikachu avatar on sky-blue so the sprite stands out */}
+            <div className="shrink-0 w-24 h-24 rounded-3xl border-2 border-[#5A3A2A] bg-[#BDEBFF] flex items-center justify-center shadow-[0_4px_0_#5A3A2A] overflow-hidden">
+              <img
+                src={getPokemonImageUrl(25)}
+                alt="Pikachu"
+                referrerPolicy="no-referrer"
+                className="h-4/5 w-4/5 object-contain"
+              />
+            </div>
+
+            <div>
+              <h2 className="font-display font-black text-2xl text-[#24456B] uppercase italic tracking-tight leading-none">
+                {t.nameEntryTitle}
+              </h2>
+              <p className="text-[11px] text-[#5A3A2A]/80 font-bold mt-2 leading-snug px-2">
+                {t.nameEntrySub}
+              </p>
+            </div>
+
+            <div className="w-full">
+              <input
+                type="text"
+                autoFocus
+                maxLength={PLAYER_NAME_MAX}
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && nameDraft.trim()) {
+                    savePlayerName(nameDraft);
+                    setScreen("board");
+                  }
+                }}
+                placeholder={t.nameEntryPlaceholder}
+                className="w-full bg-white border-2 border-[#5A3A2A] focus:border-[#24456B] rounded-2xl py-3 px-4 text-center text-base font-black text-[#5A3A2A] placeholder:text-[#5A3A2A]/35 outline-none shadow-[0_3px_0_#5A3A2A]"
+              />
+              <div className="text-[9px] font-mono font-black text-[#5A3A2A]/50 mt-1 text-right pr-1">
+                {nameDraft.length}/{PLAYER_NAME_MAX}
+              </div>
+            </div>
+
+            <div className="w-full space-y-1.5">
+              <button
+                onClick={() => {
+                  savePlayerName(nameDraft);
+                  setScreen("board");
+                }}
+                disabled={!nameDraft.trim()}
+                className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>{t.nameEntryConfirm}</span>
+                <Play className="h-4 w-4 fill-white text-white" />
+              </button>
+              <button
+                onClick={() => setScreen("start")}
+                className="w-full btn-core-dark py-2.5 flex items-center justify-center gap-1.5"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 text-pokemon-navy" />
+                <span>{t.nameEntryBack}</span>
+              </button>
             </div>
           </div>
         )}
@@ -810,6 +901,7 @@ export default function App() {
                     setScreen("challenge");
                   }}
                   language={language}
+                  playerName={playerName}
                   t={t}
                 />
 
@@ -883,8 +975,8 @@ export default function App() {
                         className="h-4/5 w-4/5 object-contain"
                       />
                     </div>
-                    <span className="font-display font-black text-sm text-[#5A3A2A] uppercase">
-                      {t.vsPlayerLabel}
+                    <span className="font-display font-black text-sm text-[#5A3A2A] uppercase truncate max-w-[110px]">
+                      {playerName || t.vsPlayerLabel}
                     </span>
                   </div>
 

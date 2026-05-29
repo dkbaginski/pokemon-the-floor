@@ -16,6 +16,7 @@ interface FloorGridProps {
   playerTerritorySize: number;
   recentlyConqueredCellIds?: number[];
   language: "pl" | "en";
+  playerName?: string;
   t: any;
 }
 
@@ -165,7 +166,7 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
   return result;
 }
 
-export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, t }: FloorGridProps) {
+export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, playerName, t }: FloorGridProps) {
 
   // Player owns this position — used for adjacency tests AND treated as "same
   // owner" for polygon merge. Just-conquered cells stay inside the set so their
@@ -243,7 +244,7 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             const bgClass = item.isJustConquered
               ? "animate-lava-takeover bg-[#FFD84D] text-[#24456B]"
               : isPlayerTile
-              ? "bg-[#FFD84D] cursor-default text-[#24456B]"
+              ? "bg-[#BDEBFF] cursor-default text-[#24456B]"
               : polygonAdjacent
               ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
               : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
@@ -499,9 +500,15 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
               >
                 {isPlayer ? (
                   <>
-                    <span className="text-base sm:text-xl lg:text-2xl animate-pulse leading-none">⚡</span>
+                    <img
+                      src={getPokemonImageUrl(25)}
+                      alt="Pikachu"
+                      referrerPolicy="no-referrer"
+                      className="h-7 w-7 sm:h-9 sm:w-9 object-contain select-none leading-none"
+                      style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.25))" }}
+                    />
                     <span className="font-display font-black text-[8px] sm:text-[9px] text-[#24456B] uppercase tracking-wider leading-none whitespace-nowrap">
-                      {t.boardPlayerNick || t.playerTileLabel}
+                      {playerName || t.playerTileLabel}
                     </span>
                   </>
                 ) : (

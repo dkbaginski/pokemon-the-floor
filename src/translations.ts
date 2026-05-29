@@ -55,6 +55,11 @@ const dict = {
   introFullRulesLink: { en: "Full rules list", pl: "Pełna lista zasad" },
   introHelpInline: { en: "HELP", pl: "POMOC" },
   introHelpBtnSecondary: { en: "HELP & RULES", pl: "POMOC I ZASADY" },
+  nameEntryTitle: { en: "What's your name?", pl: "Jak się nazywasz?" },
+  nameEntrySub: { en: "It replaces the generic trainer name on the board and in duels.", pl: "Zastąpi generyczną nazwę trenera na planszy i w pojedynkach." },
+  nameEntryPlaceholder: { en: "e.g. Ash", pl: "np. Ash" },
+  nameEntryConfirm: { en: "CONFIRM", pl: "ZATWIERDŹ" },
+  nameEntryBack: { en: "BACK", pl: "WSTECZ" },
   typeElectric: { en: "ELECTRIC", pl: "ELEKTRYCZNY" },
   // Board banner (design 02)
   boardConquestTitle: { en: "KANTO CONQUEST", pl: "PODBÓJ KANTO" },
@@ -64,7 +69,6 @@ const dict = {
   boardLegendMy: { en: "MINE", pl: "MOJE" },
   boardLegendAvailable: { en: "OPEN", pl: "DOSTĘPNE" },
   boardLegendLocked: { en: "LOCKED", pl: "ZABLOKOWANE" },
-  boardPlayerNick: { en: "YOU · ASH", pl: "TY · ASH" },
   // VS challenge (design 06)
   vsHeaderMetaLeft: { en: "DUEL · FIELD", pl: "POJEDYNEK · POLE" },
   vsHeaderMetaSub: { en: "TERRITORY CONTROL", pl: "OPANOWANIE OBSZARU" },
