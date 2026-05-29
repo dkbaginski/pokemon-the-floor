@@ -39,8 +39,8 @@ function lcg(seed: number) {
 }
 
 // --- Difficulty by board position -------------------------------------------
-// Player starts at (row=4, col=0) = Alabastia (bottom-left). Manhattan
-// distance grows toward (0,4) = Indigo Plateau (top-right).
+// Player starts at (row=4, col=0), the bottom-left tile. Manhattan
+// distance grows toward (0,4) = the top-right tile.
 // Resulting distribution across the 24 non-player cells: ≈8 easy / 10 medium / 6 hard.
 export function getDifficultyForCell(row: number, col: number): Difficulty {
   const distance = (4 - row) + col;

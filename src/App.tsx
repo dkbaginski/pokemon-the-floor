@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { INITIAL_GRID, BOTS, Bot, GridCell } from "./bots";
 import { getPokemonImageUrl, POKEMON_LIST, POKEMON_TYPES_PL, getTypeName } from "./pokemonData";
 import FloorGrid from "./components/FloorGrid";
@@ -15,6 +15,7 @@ import {
   Play,
   ShieldCheck,
   ChevronRight,
+  Check,
   X
 } from "lucide-react";
 import {
@@ -29,7 +30,23 @@ import {
   SwordsCrossedIcon
 } from "./components/icons";
 
-type ScreenState = "start" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
+type ScreenState = "start" | "name_entry" | "board" | "challenge" | "duel" | "duel_win" | "duel_lose" | "victory";
+
+// Keep player nicknames short so they never overflow the tiny board tiles.
+const PLAYER_NAME_MAX = 12;
+
+// Hand-picked starter roster for the name-entry partner picker. Each entry's
+// `bg` is the type-tinted backdrop used behind the hero sprite. Pikachu (25) is
+// the default so existing saves with no stored partner keep their sprite.
+const PLAYER_ROSTER: { id: number; name: string; bg: string }[] = [
+  { id: 25, name: "Pikachu", bg: "#FFD84D" },
+  { id: 1, name: "Bulbasaur", bg: "#A9E6CF" },
+  { id: 4, name: "Charmander", bg: "#FF7A62" },
+  { id: 7, name: "Squirtle", bg: "#BDEBFF" },
+  { id: 133, name: "Eevee", bg: "#F2D5A7" },
+  { id: 39, name: "Jigglypuff", bg: "#FFC7DA" },
+];
+const DEFAULT_PLAYER_AVATAR_ID = 25;
 
 const SHOWN_LOG_MAX = 50;
 
@@ -49,11 +66,46 @@ export default function App() {
 
   const { t, tp } = createTranslator(language);
 
+  // --- Player identity ---
+  const [playerName, setPlayerName] = useState<string>(() => {
+    const saved = localStorage.getItem("the_floor_player_name");
+    return saved ? saved.slice(0, PLAYER_NAME_MAX) : "";
+  });
+  const [playerAvatarId, setPlayerAvatarId] = useState<number>(() => {
+    const saved = parseInt(localStorage.getItem("the_floor_player_avatar") || "", 10);
+    return PLAYER_ROSTER.some((p) => p.id === saved) ? saved : DEFAULT_PLAYER_AVATAR_ID;
+  });
+  // Draft values bound to the name-entry screen before they are committed.
+  const [nameDraft, setNameDraft] = useState<string>("");
+  const [avatarDraft, setAvatarDraft] = useState<number>(DEFAULT_PLAYER_AVATAR_ID);
+  // Name-entry UI state: validation + custom-caret focus + swap-pop remount key.
+  const [nameTouched, setNameTouched] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
+  const [avatarSwapKey, setAvatarSwapKey] = useState(0);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const savePlayerName = (raw: string) => {
+    const clean = raw.trim().slice(0, PLAYER_NAME_MAX);
+    setPlayerName(clean);
+    if (clean) localStorage.setItem("the_floor_player_name", clean);
+    else localStorage.removeItem("the_floor_player_name");
+  };
+
+  const savePlayerAvatar = (id: number) => {
+    const valid = PLAYER_ROSTER.some((p) => p.id === id) ? id : DEFAULT_PLAYER_AVATAR_ID;
+    setPlayerAvatarId(valid);
+    localStorage.setItem("the_floor_player_avatar", String(valid));
+  };
+
   // --- Game Core States ---
   const [screen, setScreen] = useState<ScreenState>("start");
   const [grid, setGrid] = useState<GridCell[]>(INITIAL_GRID);
   const [unlockedPokemonIds, setUnlockedPokemonIds] = useState<number[]>([]);
   const [seenPokemonIds, setSeenPokemonIds] = useState<number[]>([]);
+  // id → epoch ms when first caught. Runs in parallel to unlockedPokemonIds so
+  // the catch-order array logic stays untouched. Pokémon caught before this was
+  // introduced simply have no entry (badge falls back to the plain status).
+  const [caughtAtMap, setCaughtAtMap] = useState<Record<number, number>>({});
   const [shownLog, setShownLog] = useState<number[]>([]);
   const [round, setRound] = useState<number>(1);
   const [gameStartTime, setGameStartTime] = useState<number>(() => Date.now());
@@ -158,6 +210,16 @@ export default function App() {
       setUnlockedPokemonIds([]);
     }
 
+    const savedCaughtAt = localStorage.getItem("the_floor_pokemon_caught_at");
+    if (savedCaughtAt) {
+      try {
+        const parsed = JSON.parse(savedCaughtAt);
+        if (parsed && typeof parsed === "object") setCaughtAtMap(parsed);
+      } catch (e) {
+        setCaughtAtMap({});
+      }
+    }
+
     const savedSeen = localStorage.getItem("the_floor_pokemon_seen");
     if (savedSeen) {
       try {
@@ -216,6 +278,12 @@ export default function App() {
       if (prev.includes(id)) return prev;
       const updated = [...prev, id];
       localStorage.setItem("the_floor_pokemon_pokedex", JSON.stringify(updated));
+      return updated;
+    });
+    setCaughtAtMap((prev) => {
+      if (prev[id]) return prev;
+      const updated = { ...prev, [id]: Date.now() };
+      localStorage.setItem("the_floor_pokemon_caught_at", JSON.stringify(updated));
       return updated;
     });
     handleSeePokemon(id);
@@ -471,7 +539,7 @@ export default function App() {
     }
   };
 
-  const showHeaderActions = screen !== "start" && screen !== "duel" && !showPokedex && !showHelp;
+  const showHeaderActions = screen !== "start" && screen !== "name_entry" && screen !== "duel" && !showPokedex && !showHelp;
 
   return (
     <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl mx-auto h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between shadow-[0_6px_12px_rgba(90,58,42,0.18)] relative border-x-2 border-[#5A3A2A]/40 overflow-hidden font-sans">
@@ -673,7 +741,16 @@ export default function App() {
               {/* CTAs */}
               <div className="shrink-0 space-y-1.5">
                 <button
-                  onClick={() => setScreen("board")}
+                  onClick={() => {
+                    if (playerName) {
+                      setScreen("board");
+                    } else {
+                      setNameDraft("");
+                      setAvatarDraft(playerAvatarId);
+                      setNameTouched(false);
+                      setScreen("name_entry");
+                    }
+                  }}
                   className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2"
                 >
                   <span>{t.startBtn}</span>
@@ -691,6 +768,192 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {screen === "name_entry" && (() => {
+          const avatar = PLAYER_ROSTER.find((p) => p.id === avatarDraft) || PLAYER_ROSTER[0];
+          const trimmed = nameDraft.trim();
+          const isEmpty = trimmed.length === 0;
+          const nearLimit = nameDraft.length >= PLAYER_NAME_MAX - 2;
+          const atLimit = nameDraft.length >= PLAYER_NAME_MAX;
+          const showError = nameTouched && isEmpty;
+          const previewName = trimmed ? trimmed.toUpperCase() : t.nameEntryPreviewFallback;
+
+          const pickPartner = (id: number) => {
+            setAvatarDraft(id);
+            setAvatarSwapKey((k) => k + 1);
+          };
+
+          const submitName = () => {
+            setNameTouched(true);
+            if (isEmpty) {
+              nameInputRef.current?.focus();
+              return;
+            }
+            savePlayerName(nameDraft);
+            savePlayerAvatar(avatarDraft);
+            setScreen("board");
+          };
+
+          return (
+            <div className="relative w-full h-full flex flex-col justify-center gap-3 px-1 py-2 font-sans select-none max-w-sm mx-auto overflow-hidden">
+              {/* dotted backdrop */}
+              <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
+
+              <div className="relative w-full flex flex-col justify-center gap-3">
+                {/* HERO — duel-field-style avatar tile, type-tinted backdrop */}
+                <div
+                  key={"bg" + avatar.id}
+                  className="shrink-0 w-full max-w-[256px] aspect-square mx-auto relative rounded-3xl border-2 border-[#5A3A2A] shadow-[0_4px_0_#5A3A2A] overflow-hidden flex items-center justify-center transition-colors duration-300"
+                  style={{ background: avatar.bg, maxHeight: "34vh" }}
+                >
+                  <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 30%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 58%)" }} />
+                  <img
+                    key={"blur" + avatarSwapKey}
+                    src={getPokemonImageUrl(avatar.id)}
+                    alt=""
+                    aria-hidden="true"
+                    referrerPolicy="no-referrer"
+                    className="absolute left-1/2 top-1/2 pointer-events-none"
+                    style={{ width: "82%", transform: "translate(-50%,-50%) scale(1.55)", filter: "blur(26px)", opacity: 0.55 }}
+                  />
+                  <div className="relative z-10 h-[72%] flex items-center justify-center animate-hover">
+                    <img
+                      key={"sharp" + avatarSwapKey}
+                      src={getPokemonImageUrl(avatar.id)}
+                      alt={avatar.name}
+                      referrerPolicy="no-referrer"
+                      className="object-contain h-full w-auto sticker-hover animate-swap-pop"
+                      style={{ filter: "drop-shadow(0 6px 10px rgba(90,58,42,0.4))" }}
+                    />
+                  </div>
+
+                  {/* board-tile-style nick badge — mirrors "TY · NAME" on the floor */}
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
+                    <div className="bg-white border-2 border-[#5A3A2A] rounded-full px-3.5 py-1 shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="font-display font-black text-[11px] uppercase tracking-wider text-[#E95050] italic">{t.vsPlayerLabel}</span>
+                      <span className="text-[#5A3A2A]/40 font-black text-[11px]">·</span>
+                      <span className={`font-display font-black text-[13px] uppercase tracking-wide italic ${trimmed ? "text-[#24456B]" : "text-[#5A3A2A]/35"}`}>
+                        {previewName}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PROMPT */}
+                <div className="shrink-0 text-center px-1">
+                  <span className="block text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">{t.nameEntryRegister}</span>
+                  <h1 className="font-display text-[24px] font-black tracking-tight leading-none italic uppercase text-[#5A3A2A] mt-0.5">{t.nameEntryTitle}</h1>
+                  <p className="text-[11px] text-[#5A3A2A]/85 leading-snug font-semibold pt-1 max-w-[300px] mx-auto">
+                    {t.nameEntrySub}
+                  </p>
+                </div>
+
+                {/* INPUT */}
+                <div className="shrink-0">
+                  <div
+                    onClick={() => nameInputRef.current?.focus()}
+                    className={`relative rounded-2xl border-2 bg-white px-4 h-[58px] flex items-center transition-colors cursor-text shadow-[0_3px_0_#5A3A2A] ${
+                      showError ? "border-[#E95050]" : nameFocused ? "border-[#24456B]" : "border-[#5A3A2A]"
+                    }`}
+                  >
+                    <input
+                      ref={nameInputRef}
+                      autoFocus
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value.replace(/^\s+/, "").slice(0, PLAYER_NAME_MAX))}
+                      onFocus={() => setNameFocused(true)}
+                      onBlur={() => { setNameFocused(false); setNameTouched(true); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") submitName(); }}
+                      maxLength={PLAYER_NAME_MAX}
+                      spellCheck={false}
+                      autoComplete="off"
+                      placeholder={t.nameEntryPlaceholder}
+                      aria-label={t.nameEntryTitle}
+                      className="nick-input flex-1 min-w-0 bg-transparent border-0 outline-none font-display font-black text-[22px] tracking-wide uppercase text-[#24456B]"
+                      style={{ letterSpacing: "0.02em" }}
+                    />
+                    {nameFocused && (
+                      <span
+                        className="ml-0.5 w-[3px] h-7 rounded-full bg-[#24456B] shrink-0"
+                        style={{ animation: "caret-blink 1.05s steps(1) infinite" }}
+                      />
+                    )}
+                    <span className={`ml-auto pl-3 font-mono font-black text-[11px] tabular-nums shrink-0 ${
+                      atLimit ? "text-[#E95050]" : nearLimit ? "text-[#FF7A62]" : "text-[#5A3A2A]/45"
+                    }`}>
+                      {nameDraft.length}/{PLAYER_NAME_MAX}
+                    </span>
+                  </div>
+
+                  {/* helper / validation — fixed height so layout never jumps */}
+                  <div className="h-[18px] mt-1.5 px-1 flex items-center justify-center text-center">
+                    {showError ? (
+                      <span className="text-[10.5px] font-black uppercase tracking-wide text-[#E95050]">{t.nameEntryErrorEmpty}</span>
+                    ) : atLimit ? (
+                      <span className="text-[10.5px] font-black uppercase tracking-wide text-[#FF7A62]">{t.nameEntryLimitReached}</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-[#5A3A2A]/55">{t.nameEntryHelper}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* PARTNER PICKER */}
+                <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-white px-3 py-2.5 shadow-[0_3px_0_#5A3A2A]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#5A3A2A]">{t.nameEntryPickPartner}</span>
+                    <span className="text-[9px] font-mono font-black text-[#5A3A2A]/55">{avatar.name.toUpperCase()}</span>
+                  </div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {PLAYER_ROSTER.map((p) => {
+                      const on = p.id === avatarDraft;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => pickPartner(p.id)}
+                          aria-label={p.name}
+                          aria-pressed={on}
+                          className={`relative aspect-square rounded-xl border-2 flex items-center justify-center transition-all duration-150 cursor-pointer ${
+                            on
+                              ? "border-[#24456B] shadow-[0_3px_0_#24456B] -translate-y-0.5"
+                              : "border-[#5A3A2A]/30 shadow-[0_2px_0_rgba(90,58,42,0.18)] hover:border-[#5A3A2A] hover:-translate-y-0.5"
+                          }`}
+                          style={{ background: on ? p.bg : "#FFF9EE" }}
+                        >
+                          <img
+                            src={getPokemonImageUrl(p.id)}
+                            alt={p.name}
+                            referrerPolicy="no-referrer"
+                            className="h-[82%] w-[82%] object-contain"
+                            style={{ filter: on ? "drop-shadow(0 1px 2px rgba(90,58,42,0.35))" : "saturate(0.85)" }}
+                          />
+                          {on && (
+                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-[#24456B] border-2 border-white flex items-center justify-center">
+                              <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <div className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={submitName}
+                    disabled={isEmpty}
+                    className="w-full btn-core-berry py-3.5 flex items-center justify-center gap-2 whitespace-nowrap"
+                  >
+                    <span>{t.nameEntryConfirm}</span>
+                    <Play className="h-4 w-4 fill-white text-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* SCREEN 2: THE MAIN BOARD VIEW (design 02) */}
         {screen === "board" && (
@@ -790,6 +1053,8 @@ export default function App() {
                     setScreen("challenge");
                   }}
                   language={language}
+                  playerName={playerName}
+                  playerAvatarId={playerAvatarId}
                   t={t}
                 />
 
@@ -855,19 +1120,16 @@ export default function App() {
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                   {/* Player */}
                   <div className="flex flex-col items-center gap-1.5">
-                    <div className="w-full aspect-square rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] flex items-center justify-center shadow-[0_2px_0_#5A3A2A] overflow-hidden">
+                    <div className="w-full aspect-square rounded-2xl border-2 border-[#5A3A2A] bg-[#BDEBFF] flex items-center justify-center shadow-[0_2px_0_#5A3A2A] overflow-hidden">
                       <img
-                        src={getPokemonImageUrl(25)}
-                        alt="Pikachu"
+                        src={getPokemonImageUrl(playerAvatarId)}
+                        alt=""
                         referrerPolicy="no-referrer"
                         className="h-4/5 w-4/5 object-contain"
                       />
                     </div>
-                    <span className="font-display font-black text-sm text-[#5A3A2A] uppercase">
-                      {t.vsPlayerLabel}
-                    </span>
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#5A3A2A]/70 bg-[#A9E6CF] border border-[#5A3A2A] rounded-full px-2 py-0.5">
-                      ⌖ {t.vsPlayerLocation}
+                    <span className="font-display font-black text-sm text-[#5A3A2A] uppercase truncate max-w-[110px]">
+                      {playerName || t.vsPlayerLabel}
                     </span>
                   </div>
 
@@ -1248,6 +1510,7 @@ export default function App() {
         <PokedexView
           unlockedIds={unlockedPokemonIds}
           seenIds={seenPokemonIds}
+          caughtAt={caughtAtMap}
           onClose={() => setShowPokedex(false)}
           playerActiveTypes={[]}
           language={language}
@@ -1261,12 +1524,12 @@ export default function App() {
         const elapsedMin = Math.floor(elapsedMs / 60000);
         const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
         const timeStr = `${String(elapsedMin).padStart(2, "0")}:${String(elapsedSec).padStart(2, "0")}`;
-        const isGoal1Done = grid.some((c) => c.currentOwnerId === "player"); // always true (starts owning Alabastia)
+        const isGoal1Done = grid.some((c) => c.currentOwnerId === "player"); // always true (starts owning the bottom-left tile)
         const isGoal2Done = playerTerritorySize >= 25;
         const isGoal3Done = unlockedPokemonIds.length >= 151;
 
         return (
-          <div className="fixed inset-x-0 top-16 bottom-[68px] z-40 bg-[#1B2840] flex flex-col font-sans select-none overflow-hidden text-white">
+          <div className="fixed inset-x-0 top-16 bottom-[68px] z-40 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
             {/* Header card */}
             <div className="shrink-0 px-3 pt-3 pb-2">
@@ -1293,7 +1556,7 @@ export default function App() {
                 <button
                   onClick={() => setHistoryTab("goals")}
                   className={`py-2 text-[10px] font-black uppercase tracking-wider transition ${
-                    historyTab === "goals" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#1B2840] text-white/70 hover:text-white"
+                    historyTab === "goals" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#F2D5A7] text-[#5A3A2A]/70 hover:text-[#5A3A2A]"
                   }`}
                 >
                   {t.histTabGoals} · 3
@@ -1301,7 +1564,7 @@ export default function App() {
                 <button
                   onClick={() => setHistoryTab("duels")}
                   className={`py-2 text-[10px] font-black uppercase tracking-wider transition border-l-2 border-[#5A3A2A] ${
-                    historyTab === "duels" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#1B2840] text-white/70 hover:text-white"
+                    historyTab === "duels" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#F2D5A7] text-[#5A3A2A]/70 hover:text-[#5A3A2A]"
                   }`}
                 >
                   {t.histTabDuels} · {duelLogs.length}
@@ -1312,7 +1575,10 @@ export default function App() {
             {/* Content scroll area */}
             <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 space-y-2.5">
               {historyTab === "goals" ? (
-                <>
+                <div className="relative">
+                  {/* Dashed timeline rail threading the node circles */}
+                  <div aria-hidden="true" className="absolute left-[26px] top-[26px] bottom-[54px] border-l-2 border-dashed border-[#5A3A2A]/35" />
+                  <div className="relative space-y-2.5">
                   {/* Goal 1 */}
                   <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#A9E6CF] p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#A9E6CF] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
@@ -1345,28 +1611,29 @@ export default function App() {
                   </div>
 
                   {/* Goal 3 */}
-                  <div className={`rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-white/10"} p-3 flex items-start gap-2.5`}>
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-white/10 text-white/70 font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
+                  <div className={`rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-[#F2D5A7]"} p-3 flex items-start gap-2.5`}>
+                    <div className="w-7 h-7 shrink-0 rounded-full bg-[#F2D5A7] text-[#5A3A2A] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
                       🔒
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="inline-block bg-white/15 text-white/70 font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
+                        <span className="inline-block bg-white text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
                           {isGoal3Done ? t.histStatusCompleted : t.histStatusLocked}
                         </span>
-                        <span className="text-[9px] font-mono font-black text-white/60">{t.histStatusFinal}</span>
+                        <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">{t.histStatusFinal}</span>
                       </div>
-                      <div className="text-[11px] font-black text-white leading-tight">
+                      <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">
                         {t.histGoal3Title.replace("151", "")}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{tp("pokemonNoun", 151)}
                       </div>
-                      <div className="text-[9px] text-white/70 font-bold mt-0.5">
+                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">
                         {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
                       </div>
                     </div>
                   </div>
-                </>
+                  </div>
+                </div>
               ) : duelLogs.length === 0 ? (
-                <div className="text-center py-12 text-white/50 text-[10px] font-black uppercase tracking-widest leading-normal px-6">
+                <div className="text-center py-12 text-[#5A3A2A]/50 text-[10px] font-black uppercase tracking-widest leading-normal px-6">
                   {t.histEmptyDuels}
                 </div>
               ) : (
@@ -1544,7 +1811,7 @@ export default function App() {
         </div>
       )}
 
-      {screen !== "duel" && screen !== "start" && (() => {
+      {screen !== "duel" && screen !== "start" && screen !== "name_entry" && (() => {
         const navPlayActive = (screen === "board" || screen === "start") && !showPokedex && !showHelp;
         const navItemBase = "flex items-center gap-1.5 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none h-10 rounded-2xl border-2";
         const navActive = "bg-[#FFD84D] text-[#1B2840] border-[#1B2840] shadow-[0_3px_0_#1B2840] px-3.5";
