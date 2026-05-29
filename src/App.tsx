@@ -886,9 +886,6 @@ export default function App() {
                     <span className="font-display font-black text-sm text-[#5A3A2A] uppercase">
                       {t.vsPlayerLabel}
                     </span>
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#5A3A2A]/70 bg-[#A9E6CF] border border-[#5A3A2A] rounded-full px-2 py-0.5">
-                      ⌖ {t.vsPlayerLocation}
-                    </span>
                   </div>
 
                   {/* VS pill */}
@@ -1282,12 +1279,12 @@ export default function App() {
         const elapsedMin = Math.floor(elapsedMs / 60000);
         const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
         const timeStr = `${String(elapsedMin).padStart(2, "0")}:${String(elapsedSec).padStart(2, "0")}`;
-        const isGoal1Done = grid.some((c) => c.currentOwnerId === "player"); // always true (starts owning Alabastia)
+        const isGoal1Done = grid.some((c) => c.currentOwnerId === "player"); // always true (starts owning the bottom-left tile)
         const isGoal2Done = playerTerritorySize >= 25;
         const isGoal3Done = unlockedPokemonIds.length >= 151;
 
         return (
-          <div className="fixed inset-x-0 top-16 bottom-[68px] z-40 bg-[#1B2840] flex flex-col font-sans select-none overflow-hidden text-white">
+          <div className="fixed inset-x-0 top-16 bottom-[68px] z-40 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
             {/* Header card */}
             <div className="shrink-0 px-3 pt-3 pb-2">
@@ -1314,7 +1311,7 @@ export default function App() {
                 <button
                   onClick={() => setHistoryTab("goals")}
                   className={`py-2 text-[10px] font-black uppercase tracking-wider transition ${
-                    historyTab === "goals" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#1B2840] text-white/70 hover:text-white"
+                    historyTab === "goals" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#F2D5A7] text-[#5A3A2A]/70 hover:text-[#5A3A2A]"
                   }`}
                 >
                   {t.histTabGoals} · 3
@@ -1322,7 +1319,7 @@ export default function App() {
                 <button
                   onClick={() => setHistoryTab("duels")}
                   className={`py-2 text-[10px] font-black uppercase tracking-wider transition border-l-2 border-[#5A3A2A] ${
-                    historyTab === "duels" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#1B2840] text-white/70 hover:text-white"
+                    historyTab === "duels" ? "bg-[#FFD84D] text-[#5A3A2A]" : "bg-[#F2D5A7] text-[#5A3A2A]/70 hover:text-[#5A3A2A]"
                   }`}
                 >
                   {t.histTabDuels} · {duelLogs.length}
@@ -1333,7 +1330,10 @@ export default function App() {
             {/* Content scroll area */}
             <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 space-y-2.5">
               {historyTab === "goals" ? (
-                <>
+                <div className="relative">
+                  {/* Dashed timeline rail threading the node circles */}
+                  <div aria-hidden="true" className="absolute left-[26px] top-[26px] bottom-[54px] border-l-2 border-dashed border-[#5A3A2A]/35" />
+                  <div className="relative space-y-2.5">
                   {/* Goal 1 */}
                   <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#A9E6CF] p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#A9E6CF] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
@@ -1366,28 +1366,29 @@ export default function App() {
                   </div>
 
                   {/* Goal 3 */}
-                  <div className={`rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-white/10"} p-3 flex items-start gap-2.5`}>
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-white/10 text-white/70 font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
+                  <div className={`rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-[#F2D5A7]"} p-3 flex items-start gap-2.5`}>
+                    <div className="w-7 h-7 shrink-0 rounded-full bg-[#F2D5A7] text-[#5A3A2A] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
                       🔒
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="inline-block bg-white/15 text-white/70 font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
+                        <span className="inline-block bg-white text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
                           {isGoal3Done ? t.histStatusCompleted : t.histStatusLocked}
                         </span>
-                        <span className="text-[9px] font-mono font-black text-white/60">{t.histStatusFinal}</span>
+                        <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">{t.histStatusFinal}</span>
                       </div>
-                      <div className="text-[11px] font-black text-white leading-tight">
+                      <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">
                         {t.histGoal3Title.replace("151", "")}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{tp("pokemonNoun", 151)}
                       </div>
-                      <div className="text-[9px] text-white/70 font-bold mt-0.5">
+                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">
                         {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
                       </div>
                     </div>
                   </div>
-                </>
+                  </div>
+                </div>
               ) : duelLogs.length === 0 ? (
-                <div className="text-center py-12 text-white/50 text-[10px] font-black uppercase tracking-widest leading-normal px-6">
+                <div className="text-center py-12 text-[#5A3A2A]/50 text-[10px] font-black uppercase tracking-widest leading-normal px-6">
                   {t.histEmptyDuels}
                 </div>
               ) : (
