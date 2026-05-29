@@ -17,6 +17,7 @@ interface FloorGridProps {
   recentlyConqueredCellIds?: number[];
   language: "pl" | "en";
   playerName?: string;
+  playerAvatarId?: number;
   t: any;
 }
 
@@ -166,7 +167,7 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
   return result;
 }
 
-export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, playerName, t }: FloorGridProps) {
+export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, playerName, playerAvatarId = 25, t }: FloorGridProps) {
 
   // Player owns this position — used for adjacency tests AND treated as "same
   // owner" for polygon merge. Just-conquered cells stay inside the set so their
@@ -501,8 +502,8 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 {isPlayer ? (
                   <>
                     <img
-                      src={getPokemonImageUrl(25)}
-                      alt="Pikachu"
+                      src={getPokemonImageUrl(playerAvatarId)}
+                      alt=""
                       referrerPolicy="no-referrer"
                       className="h-7 w-7 sm:h-9 sm:w-9 object-contain select-none leading-none"
                       style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.25))" }}
