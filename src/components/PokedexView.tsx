@@ -1,5 +1,6 @@
 import { useState, memo } from "react";
 import { POKEMON_LIST, getPokemonImageUrl, POKEMON_TYPES_PL, Pokemon, getTypeName } from "../pokemonData";
+import { POKEMON_DESCRIPTIONS } from "../pokemonDescriptions";
 import { Search, Lock, X, ChevronLeft } from "lucide-react";
 import { EyeIcon, ProgressRing, PokeBallLogoIcon } from "./icons";
 
@@ -192,66 +193,15 @@ const PokemonCard = memo(function PokemonCard({
 });
 
 // --- POMOCNICZA FUNKCJA LORE OPISÓW BAZY DANYCH ---
-function getPokemonDescription(id: number, name: string, types: string[], language: "pl" | "en"): string {
-  const descriptionsPl: Record<number, string> = {
-    1: "Bulbasaur spędza czas drzemiąc w słońcu. Na jego plecach rośnie tajemnicze nasiono, które rozszerza się i czerpie energię z promieni słonecznych.",
-    2: "Gdy pąk na plecach Ivysaura zaczyna pęcznieć, Pokémon traci zdolność stania na tylnych łapach. Oznacza to, że wkrótce rozkwitnie w Venusaur.",
-    3: "Venusaur posiada olbrzymi kwiat, którego zapach koi emocje ludzi i Pokémonów. Kwiat ten rozkwita najpełniej, gdy absorbuje światło słoneczne.",
-    4: "Płomień na końcu ogona Charmandera wskazuje jego siłę życiową i emocje. Kiedy cieszy się, płomień faluje, a gdy jest wściekły - gwałtownie bucha.",
-    5: "Charmeleon ma niezwykle wojowniczą naturę. W ferworze walki niszczy wrogów ostrymi pazurami, a z jego pyska buchają potężne płomienie.",
-    6: "Charizard lata wysoko w poszukiwaniu silnych rywali. Ogień, którym dysponuje, jest tak gorący, że bez trudu topi najtwardsze odłamy skalne.",
-    7: "Squirtle potrafi schować się w swojej skorupie, a następnie tryskać wodą pod ogromnym ciśnieniem. Skorupa chroni go przed wszelkimi atakami.",
-    8: "Wartortle jest symbolem długowieczności. Puszysty ogon pokryty gęstym futrem staje się ciemniejszy i bardziej okazały wraz z upływem wieków.",
-    9: "Blastoise posiada na skorupie dwa potężne działa wodne, które potrafią przebić stal. Używa ich do precyzyjnych strzałów na odległość kilkudziesięciu metrów.",
-    10: "Caterpie pokryty jest zieloną skórą, która idealnie maskuje go w liściach. Wydziela silny zapach z czerwonego czułka, aby odstraszyć wrogów.",
-    11: "Metapod tkwi nieruchomo w twardej jak stal kokonie, przygotowując się do ewolucji. Wewnątrz skorupy jego ciało jest podatne na zranienia i miękkie.",
-    12: "Butterfree uwielbia nektar z najpiękniejszych kwiatów. Potrafi dostrzec je z ogromnych odległości, a jego skrzydła są pokryte mieniącym się pyłkiem.",
-    25: "Pikachu magazynuje energię elektryczną w czerwonych policzkach. Kiedy uwalnia skumulowany prąd, potrafi porazić wroga potężnym wyładowaniem.",
-    26: "Jeśli Raichu zgromadzi zbyt wiele prądu, staje się agresywny. Aby tego uniknąć, odprowadza nadmiar ładunków w ziemię za pomocą długiego ogona.",
-    39: "Gdy rywal spojrzy w duże oczy Jigglypuffa, ten zaczyna śpiewać tajemniczą, kojącą kołysankę, która bez wyjątków usypia każdego przeciwnika.",
-    52: "Meowth uwielbia wszystko, co się świeci, a zwłaszcza okrągłe monety. W nocy przemierza ulice miast w poszukiwaniu porzuconego bilonu.",
-    54: "Psyduck jest wiecznie dręczony przez silne bóle głowy. Kiedy ból staje się ekstremalny, Pokémon zaczyna nieświadomie kontrolować moc psychiczną.",
-    92: "Gastly składa się niemal całkowicie z gazu. Potrafi osaczyć nawet najsilniejszego przeciwnika, wprowadzając go w stan głębokiego snu.",
-    94: "Gengar lubi ukrywać się w cieniu ludzi i kraść ich ciepło. Gdy poczujesz nagły dreszcz w ciemnym pokoju, to znak, że Gengar stoi tuż za Tobą.",
-    133: "Eevee posiada bardzo niestabilny kod genetyczny, co pozwala mu na ewolucję w wiele różnych form w zależności od otoczenia i kamieni ewolucyjnych.",
-    143: "Snorlax jest niezwykle łagodnym Pokémonem, którego dzień składa się wyłącznie z jedzenia i spania. Potrafi zjeść 400 kg pożywienia na raz.",
-    150: "Mewtwo został stworzony w tajnym laboratorium z DNA Mew. Uważa się go za jednego z najbardziej bezwzględnych i potężnych Pokémonów na świecie."
-  };
-
-  const descriptionsEn: Record<number, string> = {
-    1: "Bulbasaur can be seen napping in bright sunlight. There is a seed on its back. By soaking up the sun's rays, the seed grows progressively larger.",
-    2: "When the bud on its back starts swelling, Ivysaur loses the ability to stand on its hind legs. This is a sign that it will soon bloom into Venusaur.",
-    3: "Venusaur has a giant flower whose sweet aroma calms the emotions of people and Pokémon. The flower blooms most beautifully when it absorbs sunlight.",
-    4: "The flame on the tip of Charmander's tail indicates its life force and emotions. When it is happy, the flame waves; when it is angry, it blazes fiercely.",
-    5: "Charmeleon has an incredibly hot-headed nature. In the heat of battle, it shreds foes with sharp claws while exporting powerful tongues of flame.",
-    6: "Charizard flies high in search of strong opponents. The fire it breathes is so hot that it easily melts the hardest rocks.",
-    7: "Squirtle can hide inside its shell, then spray high-pressure water. The shell protects it from various attacks.",
-    8: "Wartortle is a symbol of longevity. Its fluffy fur-covered tail grows darker and more magnificent as the centuries pass.",
-    9: "Blastoise has two powerful water cannons on its shell that can pierce steel. It uses them for precise shots from great distances.",
-    10: "Caterpie is covered in a green skin that perfectly camouflages it in leaves. It releases a strong odor from its red antenna to repel foes.",
-    11: "Metapod stands completely still inside its hard steel-like cocoon as it prepares to evolve. Inside the shell, its body is vulnerable and soft.",
-    12: "Butterfree loves the nectar of beautiful flowers. It can spot them from great distances, and its wings are covered in glittering powder.",
-    25: "Pikachu stores electricity in its red cheeks. When it releases this energy, it can shock enemies with huge electrical discharges.",
-    26: "If Raichu stores too much electricity, it becomes aggressive. To prevent this, it discharges excess power into the ground using its long tail.",
-    39: "If an opponent looks into Jigglypuff's large eyes, it begins to sing a soothing bedtime lullaby that always puts everyone to sleep.",
-    52: "Meowth loves shiny objects, especially round coins. It roams city streets at night in search of lost coins.",
-    54: "Psyduck is constantly tormented by strong headaches. When the pain becomes extreme, it begins to use psychic powers unconsciously.",
-    92: "Gastly consists almost entirely of gas. It can surround even the strongest opponents, putting them into a state of deep sleep.",
-    94: "Gengar likes to hide in people's shadows and steal their warmth. If you feel a sudden chill in a dark room, it means Gengar is right behind you.",
-    133: "Eevee has an extremely unstable genetic makeup, which allows it to evolve into many different forms depending on its surroundings and stones.",
-    143: "Snorlax is an extremely peaceful Pokémon whose day consists entirely of eating and sleeping. It can eat up to 400 kg of food at once.",
-    150: "Mewtwo was created in a secret laboratory from Mew's DNA. It is considered one of the most ruthless and powerful Pokémon in the world."
-  };
-
-  if (language === "pl") {
-    if (descriptionsPl[id]) return descriptionsPl[id];
-    const typesPl = types.map(t => POKEMON_TYPES_PL[t]?.namePl || t).join(" / ");
-    return `${name} to klasyczny Pokémon z regionu Kanto, władający typem ${typesPl}. Posiada unikalne receptory sensoryczne oraz wysoce rozwinięte zmysły bojowe, przydatne podczas rywalizacji o terytorium. Służy swojemu trenerowi niezłomną lojalnością.`;
-  } else {
-    if (descriptionsEn[id]) return descriptionsEn[id];
-    const typesEn = types.map(t => getTypeName(t, "en")).join(" / ");
-    return `${name} is a classic Pokémon from the Kanto region, carrying the ${typesEn} type. It possesses unique sensory receptors and highly developed combat instincts, useful during territory rivalries. It serves its trainer with unwavering loyalty.`;
-  }
+// Flavour text for all 151 Kanto species lives in pokemonDescriptions.ts.
+// The technical fallback below only fires if an id is ever missing from that
+// complete map (it should not happen for the canonical 1–151 set).
+function getPokemonDescription(id: number, name: string, _types: string[], language: "pl" | "en"): string {
+  const entry = POKEMON_DESCRIPTIONS[id];
+  if (entry) return entry[language];
+  return language === "pl"
+    ? `Brak opisu dla ${name}.`
+    : `No description available for ${name}.`;
 }
 
 // --- GŁÓWNY KOMPONENT WIDOKU POKÉDEXU ---
