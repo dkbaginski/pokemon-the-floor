@@ -1,5 +1,5 @@
+import { useState } from "react";
 import { GridCell, Bot, BOTS, PLAYER_PROFILE } from "../bots";
-import { Swords } from "lucide-react";
 import { SwordsCrossedIcon, PadlockIcon } from "./icons";
 import { getPokemonImageUrl } from "../pokemonData";
 
@@ -169,6 +169,11 @@ function buildComponents(grid: GridCell[]): Map<number, ComponentInfo> {
 
 export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, recentlyConqueredCellIds = [], language: _language, playerName, playerAvatarId = 25, t }: FloorGridProps) {
 
+  // Which attackable territory is hovered — keyed by its component anchor cell
+  // so hovering ANY cell of a merged bot territory highlights the WHOLE shape as
+  // one challenge target (not the single cell under the cursor).
+  const [hoveredAnchor, setHoveredAnchor] = useState<number | null>(null);
+
   // Player owns this position — used for adjacency tests AND treated as "same
   // owner" for polygon merge. Just-conquered cells stay inside the set so their
   // neighbours light up immediately and the lava-takeover meshes seamlessly.
@@ -222,74 +227,54 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
   });
 
   void playerTerritorySize; // (statistics now rendered by the parent banner — kept in props for callers)
+
   return (
     <div className="w-full font-sans text-cocoa select-none">
       {/* Kontener Główny Planszy — navy stamp board (design 02) */}
       <div className="relative overflow-hidden rounded-[24px] bg-[#1B2840] p-2.5 sm:p-3.5 shadow-[0_6px_0_#5A3A2A] border-2 border-[#5A3A2A]">
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 aspect-square relative bg-[#1B2840]">
+        <div className="grid grid-cols-5 gap-0 aspect-square relative bg-[#1B2840]">
           {gridItems.map((item) => {
             const cell = item.cell;
             const ownerBot = BOTS[cell.currentOwnerId];
             const isPlayerTile = item.isPlayer;
             // Polygon-level adjacency drives interaction state across the
             // whole territory: if ANY cell of a multi-cell bot polygon is
-            // adjacent to the player, every cell of that polygon paints with
-            // the "attackable" treatment (white bg, red swords badge, click
-            // handler enabled). Without this, the non-touching half of the
-            // polygon renders as a locked beige tile next to the attackable
-            // anchor — visually splitting the territory in two.
+            // adjacent to the player, every cell of that polygon is attackable.
             const polygonAdjacent = item.component.isAdjacent;
             const isLocked = !isPlayerTile && !polygonAdjacent;
 
-            // Background / interaction class
+            const cursorClass = isPlayerTile
+              ? "cursor-default"
+              : polygonAdjacent
+              ? "cursor-pointer"
+              : "cursor-not-allowed";
+
+            const zClass = isPlayerTile ? "z-10" : "";
+
+            // Whole-territory hover: every cell of the hovered attackable
+            // territory lights up together, so a merged bot region reads as ONE
+            // challenge target rather than per-cell.
+            const isHovered = polygonAdjacent && hoveredAnchor === item.component.anchorCellId;
+
+            // --- Flat checkerboard fill ---------------------------------------
+            // Square, flush tiles — no gap, no radius. Owner colour fills each
+            // cell, so same-owner cells form one solid block automatically.
             const bgClass = item.isJustConquered
               ? "animate-lava-takeover bg-[#FFD84D] text-[#24456B]"
               : isPlayerTile
-              ? "bg-[#BDEBFF] cursor-default text-[#24456B]"
+              ? "bg-[#FFD84D] text-[#24456B]"
               : polygonAdjacent
-              ? "bg-white hover:bg-[#FFF4DF] cursor-pointer transition-all duration-150 text-[#5A3A2A]"
-              : "bg-[#EADFC9] cursor-not-allowed text-[#5A3A2A]";
+              ? `${isHovered ? "bg-[#FFF4DF]" : "bg-white"} transition-colors duration-150 text-[#5A3A2A]`
+              : "bg-[#EADFC9] text-[#5A3A2A]";
 
-            // --- Polygon merging (player + same-bot polygons) ---------------
-            const borderClass = `border-[#5A3A2A] ${item.mergeTop ? "border-t-0" : "border-t-2"} ${item.mergeRight ? "border-r-0" : "border-r-2"} ${item.mergeBottom ? "border-b-0" : "border-b-2"} ${item.mergeLeft ? "border-l-0" : "border-l-2"}`;
-
-            const cornerClass = `${(!item.mergeTop && !item.mergeLeft) ? "rounded-tl-xl sm:rounded-tl-2xl" : "rounded-tl-none"} ${(!item.mergeTop && !item.mergeRight) ? "rounded-tr-xl sm:rounded-tr-2xl" : "rounded-tr-none"} ${(!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-xl sm:rounded-bl-2xl" : "rounded-bl-none"} ${(!item.mergeBottom && !item.mergeRight) ? "rounded-br-xl sm:rounded-br-2xl" : "rounded-br-none"}`;
-
-            // No negative margins on cells — keep them at their grid track
-            // positions. Polygon merge is achieved via an absolute-positioned
-            // bg overlay (below) that extends into the gap on merge sides,
-            // plus per-corner fillers at L-bend concave intersections.
-            // This avoids the previous "two perpendicular margins extend the
-            // box in two directions and paint into the diagonal corner outside
-            // the polygon" issue.
-            const shadowClass = cell.row === 4 ? "shadow-[0_3px_0_#5A3A2A]" : "";
-            const zClass = isPlayerTile ? "z-10" : "";
-
-            // Fill colour used by overlay + corner fillers. Matches the cell's
-            // own bg so the merged polygon paints as one continuous colour.
-            const fillColor = item.isJustConquered || isPlayerTile
-              ? "#FFD84D"
-              : polygonAdjacent
-                ? "#FFFFFF"
-                : "#EADFC9";
-
-            // Helper: is the diagonal neighbour part of the same polygon?
-            // Used to decide whether a corner filler needs L-bend borders
-            // (when the diagonal is a DIFFERENT owner) or is fully interior.
-            const diagSameOwner = (dr: number, dc: number) => {
-              const d = grid.find(g => g.row === cell.row + dr && g.col === cell.col + dc);
-              return d?.currentOwnerId === cell.currentOwnerId;
-            };
-            const cornerTR = item.mergeTop && item.mergeRight;
-            const cornerTL = item.mergeTop && item.mergeLeft;
-            const cornerBR = item.mergeBottom && item.mergeRight;
-            const cornerBL = item.mergeBottom && item.mergeLeft;
-            const trInterior = cornerTR && diagSameOwner(-1, 1);
-            const tlInterior = cornerTL && diagSameOwner(-1, -1);
-            const brInterior = cornerBR && diagSameOwner(1, 1);
-            const blInterior = cornerBL && diagSameOwner(1, -1);
-
-            const hasAnyMerge = item.mergeTop || item.mergeRight || item.mergeBottom || item.mergeLeft;
+            // --- Single-line cocoa borders ------------------------------------
+            // Draw top/left whenever the neighbour differs (mergeTop/Left false
+            // also covers the board's top/left edge). Right/bottom only on the
+            // board's outer edge — every interior boundary between two owners is
+            // then drawn exactly once (by the right/bottom cell's left/top
+            // border), with NO border inside a single territory → a clean
+            // checkerboard with solid merged blocks, no doubled lines.
+            const borderClass = `border-[#5A3A2A] ${!item.mergeTop ? "border-t-2" : ""} ${!item.mergeLeft ? "border-l-2" : ""} ${cell.col === 4 ? "border-r-2" : ""} ${cell.row === 4 ? "border-b-2" : ""}`;
 
             const tooltipText = isPlayerTile
               ? `${t.botTooltipYourTerritory} (${playerFieldsSet.size})`
@@ -304,175 +289,70 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                 onClick={() => {
                   if (polygonAdjacent && ownerBot) onSelectCell(cell, ownerBot);
                 }}
+                onMouseEnter={() => { if (polygonAdjacent) setHoveredAnchor(item.component.anchorCellId); }}
+                onMouseLeave={() => setHoveredAnchor((prev) => (prev === item.component.anchorCellId ? null : prev))}
                 disabled={!polygonAdjacent}
-                className={`relative flex flex-col items-center justify-end p-1 transition-all outline-none active:shadow-none active:translate-y-0.5 ${borderClass} ${cornerClass} ${shadowClass} ${zClass} ${bgClass}`}
+                className={`relative flex flex-col items-center justify-end p-1 outline-none active:translate-y-0.5 ${cursorClass} ${zClass} ${borderClass} ${bgClass}`}
                 style={{
                   gridRow: `${item.gridRowStart} / span 1`,
                   gridColumn: `${item.gridColStart} / span 1`,
                 }}
                 title={tooltipText}
               >
-                {/* Polygon-merge overlay — extends the cell's fill colour into
-                    the adjacent gap on every merged side. Sits in the gap
-                    area only (no overlap with neighbouring polygons because
-                    only merge sides extend). Behind all other content.
-                    At polygon's outer corners (where the cell itself has a
-                    rounded corner via cornerClass), match the cell's INNER
-                    border-radius (outer radius minus 2px border) so the
-                    overlay's L-shape doesn't paint a sharp square over the
-                    cell's rounded bg curve. */}
-                {hasAnyMerge && (
-                  <div
-                    className={`absolute pointer-events-none ${
-                      item.mergeTop ? "-top-[6px] sm:-top-[10px]" : "top-0"
-                    } ${
-                      item.mergeRight ? "-right-[6px] sm:-right-[10px]" : "right-0"
-                    } ${
-                      item.mergeBottom ? "-bottom-[6px] sm:-bottom-[10px]" : "bottom-0"
-                    } ${
-                      item.mergeLeft ? "-left-[6px] sm:-left-[10px]" : "left-0"
-                    } ${
-                      (!item.mergeTop && !item.mergeLeft) ? "rounded-tl-[10px] sm:rounded-tl-[14px]" : ""
-                    } ${
-                      (!item.mergeTop && !item.mergeRight) ? "rounded-tr-[10px] sm:rounded-tr-[14px]" : ""
-                    } ${
-                      (!item.mergeBottom && !item.mergeLeft) ? "rounded-bl-[10px] sm:rounded-bl-[14px]" : ""
-                    } ${
-                      (!item.mergeBottom && !item.mergeRight) ? "rounded-br-[10px] sm:rounded-br-[14px]" : ""
-                    }`}
-                    style={{ backgroundColor: fillColor }}
-                  />
+                {/* Corner-closing filler — the single-line border rule (top/left
+                    on differ) leaves a 2px gap at exactly one configuration: a
+                    cell whose top AND left neighbours share its owner but whose
+                    top-left DIAGONAL is a different owner (the convex corner of
+                    that diagonal territory, which no border closes). A 2px cocoa
+                    square in this cell's top-left corner makes every merge
+                    boundary continuous — bulletproof. */}
+                {item.mergeTop && item.mergeLeft && ownerAt(cell.row - 1, cell.col - 1) !== cell.currentOwnerId && (
+                  <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-[#5A3A2A] pointer-events-none z-10" />
                 )}
 
-                {/* Corner fillers — bridge the gap intersection at each corner
-                    where BOTH adjacent merges are true. Paint the fill colour;
-                    when the diagonal neighbour is a DIFFERENT polygon (L-bend),
-                    also draw the two perpendicular border segments that form
-                    the L outline at the concave corner. */}
-                {cornerTR && (
-                  <div
-                    className={`absolute -top-[6px] sm:-top-[10px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${trInterior ? "" : "border-t-2 border-r-2 border-[#5A3A2A]"}`}
-                    style={{ backgroundColor: fillColor }}
-                  />
-                )}
-                {cornerTL && (
-                  <div
-                    className={`absolute -top-[6px] sm:-top-[10px] -left-[6px] sm:-left-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${tlInterior ? "" : "border-t-2 border-l-2 border-[#5A3A2A]"}`}
-                    style={{ backgroundColor: fillColor }}
-                  />
-                )}
-                {cornerBR && (
-                  <div
-                    className={`absolute -bottom-[6px] sm:-bottom-[10px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${brInterior ? "" : "border-b-2 border-r-2 border-[#5A3A2A]"}`}
-                    style={{ backgroundColor: fillColor }}
-                  />
-                )}
-                {cornerBL && (
-                  <div
-                    className={`absolute -bottom-[6px] sm:-bottom-[10px] -left-[6px] sm:-left-[10px] w-[6px] sm:w-[10px] h-[6px] sm:h-[10px] pointer-events-none ${blInterior ? "" : "border-b-2 border-l-2 border-[#5A3A2A]"}`}
-                    style={{ backgroundColor: fillColor }}
-                  />
-                )}
-
-                {/* Edge stitches — bridge the cocoa border across the gap on
-                    each merge side, but only at perpendicular edges that
-                    don't themselves merge (i.e. polygon outline crossing the
-                    merge gap). Owned solely by the cell that has mergeRight /
-                    mergeBottom to avoid double-painting from both neighbours. */}
-                {item.mergeRight && !item.mergeTop && (
-                  <div className="absolute -top-[2px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[2px] bg-[#5A3A2A] pointer-events-none" />
-                )}
-                {item.mergeRight && !item.mergeBottom && (
-                  <div className="absolute -bottom-[2px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[2px] bg-[#5A3A2A] pointer-events-none" />
-                )}
-                {item.mergeBottom && !item.mergeLeft && (
-                  <div className="absolute -bottom-[6px] sm:-bottom-[10px] -left-[2px] w-[2px] h-[6px] sm:h-[10px] bg-[#5A3A2A] pointer-events-none" />
-                )}
-                {item.mergeBottom && !item.mergeRight && (
-                  <div className="absolute -bottom-[6px] sm:-bottom-[10px] -right-[2px] w-[2px] h-[6px] sm:h-[10px] bg-[#5A3A2A] pointer-events-none" />
-                )}
-
-                {/* Drop-shadow stitch — the per-cell shadow-[0_3px_0_#5A3A2A]
-                    on row-4 cells terminates at each cell's right edge, so a
-                    horizontal polygon along the bottom row showed the shadow
-                    as three separate strips with gaps. This bridges the col
-                    gap below mergeRight cells at the shadow's exact y-range
-                    (cell.bottom .. cell.bottom + 3px). */}
-                {cell.row === 4 && item.mergeRight && (
-                  <div className="absolute -bottom-[5px] -right-[6px] sm:-right-[10px] w-[6px] sm:w-[10px] h-[3px] bg-[#5A3A2A] pointer-events-none" />
-                )}
-
-                {/* Owner labels (player ⚡+nick, bot sprite+name) are rendered in
-                    a separate polygon-spanning layer after the cells — see the
-                    label layer below the grid map. This keeps the label centred
-                    over the whole merged shape instead of a single anchor cell. */}
-
-                {/* ID-pill (design 02) — small white pill with the tile number
-                    in the top-left of the anchor cell. Rendered once per
-                    polygon so multi-cell bot territories don't duplicate the
-                    label. Player tiles intentionally don't render it — the
-                    centred ⚡ + nickname is enough. */}
+                {/* ID-pill — once per polygon (anchor cell), bots only. */}
                 {item.isAnchor && !isPlayerTile && ownerBot && (
                   <span className="absolute top-1 left-1 z-20 font-mono font-black text-[8px] bg-white border border-[#5A3A2A] rounded px-1 text-[#5A3A2A] pointer-events-none leading-none py-0.5">
                     {String(ownerBot.number).padStart(2, "0")}
                   </span>
                 )}
 
-                {/* (No echo label on non-anchor cells — polygon-level adjacency
-                    plus the merged border + single corner badge + continuous
-                    difficulty bar already read as one territory, so duplicating
-                    the "GRACZ N" text would be noise.) */}
-
-                {/* Corner badges — render from the polygon's visual top-right
-                    cell (not the label centroid) so that on a 2-wide merged
-                    polygon the badge sits on the outer edge instead of the
-                    seam between cells. Lock for out-of-range tiles, red
-                    crossed-swords for adjacent (attackable) tiles. Mutually
-                    exclusive: a polygon is either reachable or it isn't. */}
+                {/* Corner badges — from the polygon's visual top-right cell.
+                    Lock for out-of-range tiles, red crossed-swords for
+                    attackable tiles. Mutually exclusive. */}
                 {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && isLocked && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center pointer-events-none z-20">
                     <PadlockIcon size={10} color="#5A3A2A" strokeWidth={2.5} />
                   </div>
                 )}
-
                 {cell.id === item.component.cornerCellId && !isPlayerTile && ownerBot && polygonAdjacent && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#E95050] border-2 border-[#5A3A2A] shadow-[0_1px_0_#5A3A2A] flex items-center justify-center pointer-events-none z-20">
                     <SwordsCrossedIcon size={10} color="#FFFFFF" strokeWidth={2.5} />
                   </div>
                 )}
 
-                {/* Difficulty bar — only on the bottom edge of a bot polygon.
-                    Solid fill, no cocoa-alpha borders, so when two bars
-                    overlap in the gap between merged cells the colour stays
-                    consistent (previously the half-opacity cocoa borders
-                    stacked and produced a darker stitch). */}
+                {/* Difficulty bar — bottom edge of a bot polygon. Flush to the
+                    cell edge on merged sides so adjacent bars join into one
+                    continuous bar across the territory. */}
                 {!isPlayerTile && ownerBot && !item.mergeBottom && (
                   <div
-                    className={`absolute bottom-1 h-1 ${item.mergeLeft ? "-left-[6px] sm:-left-[10px] rounded-l-none" : "left-1 rounded-l-full"} ${item.mergeRight ? "-right-[6px] sm:-right-[10px] rounded-r-none" : "right-1 rounded-r-full"}`}
+                    className={`absolute bottom-1 h-1 ${item.mergeLeft ? "left-0" : "left-1"} ${item.mergeRight ? "right-0" : "right-1"}`}
                     style={{
                       backgroundColor: DIFFICULTY_HEX[ownerBot.difficulty],
                       opacity: isLocked ? 0.4 : 1
                     }}
                   />
                 )}
-
-                {/* Hover combat overlay */}
-                {polygonAdjacent && (
-                  <div className="absolute inset-0 bg-lemon-yellow/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-all rounded-xl sm:rounded-2xl z-30">
-                    <Swords className="h-4 w-4 text-pokemon-navy" />
-                  </div>
-                )}
               </button>
             );
           })}
 
-          {/* Owner-label layer — one label per polygon, placed on the grid so it
-              spans the whole merged shape. For a solid rectangle it spans the
-              bounding box (perfectly centred even on 2-wide / 2-tall merges);
-              for irregular shapes it falls back to the centroid anchor cell so
-              the label never floats outside the territory. pointer-events-none
-              lets clicks fall through to the tile buttons beneath; z-[15] keeps
-              labels above player tiles (z-10) but below badges (z-20)/hover. */}
+          {/* Owner-label layer — one label per territory, absolutely centred on
+              the territory's centroid (average cell centre) so the avatar +
+              name sit in the middle of the merged block every time, whatever the
+              shape (rectangle / T / L / plus). pointer-events-none lets clicks
+              fall through to the tile buttons beneath; z-[15] keeps labels above
+              player tiles (z-10) but below badges (z-20)/hover. */}
           {Array.from(
             new Map(gridItems.map((it) => [it.component.anchorCellId, it.component])).values()
           ).map((comp) => {
@@ -481,17 +361,17 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
             if (!isPlayer && !ownerBot) return null;
             const isAdjacent = comp.isAdjacent;
             const isLocked = !isPlayer && !isAdjacent;
-            const spanRect = comp.isRect && comp.size > 1;
-            const anchor = grid.find((g) => g.id === comp.anchorCellId)!;
-            const placement = spanRect
-              ? {
-                  gridRow: `${comp.minRow + 1} / ${comp.maxRow + 2}`,
-                  gridColumn: `${comp.minCol + 1} / ${comp.maxCol + 2}`,
-                }
-              : {
-                  gridRow: `${anchor.row + 1} / span 1`,
-                  gridColumn: `${anchor.col + 1} / span 1`,
-                };
+            // Centroid of the territory's cells → percentage position over the
+            // 5×5 grid (which the absolute layer is sized to, gap-0).
+            const cells = grid.filter((g) => components.get(g.id) === comp);
+            const avgRow = cells.reduce((s, g) => s + g.row, 0) / cells.length;
+            const avgCol = cells.reduce((s, g) => s + g.col, 0) / cells.length;
+            const placement = {
+              position: "absolute" as const,
+              left: `${((avgCol + 0.5) / 5) * 100}%`,
+              top: `${((avgRow + 0.5) / 5) * 100}%`,
+              transform: "translate(-50%, -50%)",
+            };
 
             return (
               <div
@@ -508,7 +388,14 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       className="h-7 w-7 sm:h-9 sm:w-9 object-contain select-none leading-none"
                       style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.25))" }}
                     />
-                    <span className="font-display font-black text-[8px] sm:text-[9px] text-[#24456B] uppercase tracking-wider leading-none whitespace-nowrap">
+                    <span
+                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
+                      style={{
+                        fontSize: "clamp(8px, 1vh, 10px)",
+                        color: "#24456B",
+                        WebkitFontSmoothing: "antialiased",
+                      }}
+                    >
                       {playerName || t.playerTileLabel}
                     </span>
                   </>
