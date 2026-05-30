@@ -42,8 +42,41 @@ export default function DuelArea({
   // --- Voice Search / Speech Recognition ---
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [stillListening, setStillListening] = useState(false);
   const [, setHeardText] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
+  // Live handle to the active SpeechRecognition instance so a second tap (or an
+  // inactivity timer) can stop it. Lifted out of startSpeechRecognition's scope.
+  const recognitionRef = useRef<any>(null);
+  const inactivityTimerRef = useRef<number | null>(null);
+  const reassureTimerRef = useRef<number | null>(null);
+  // True once a transcript came back, so onend can tell "user/timer stopped it"
+  // (no error banner) apart from a genuine recognition error.
+  const gotResultRef = useRef(false);
+
+  // Clears both voice timers. Called on stop, result, error and unmount.
+  const clearVoiceTimers = () => {
+    if (inactivityTimerRef.current !== null) {
+      window.clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    if (reassureTimerRef.current !== null) {
+      window.clearTimeout(reassureTimerRef.current);
+      reassureTimerRef.current = null;
+    }
+  };
+
+  // Stop listening on unmount so a dangling recognition/timer can't fire.
+  useEffect(() => {
+    return () => {
+      clearVoiceTimers();
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
 
   // --- Opponent AI Thinking state ---
   const [opponentGuessText, setOpponentGuessText] = useState("");
@@ -157,6 +190,20 @@ export default function DuelArea({
   }, [activePlayer, duelEnded]);
 
   // --- Handle Speech Recognition (Web Speech API) ---
+  // Single tap toggles listening: start when idle, stop when already listening.
+  const toggleSpeech = () => {
+    if (isListening) {
+      clearVoiceTimers();
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    startSpeechRecognition();
+  };
+
   const startSpeechRecognition = () => {
     setIsManualMode(false);
     // @ts-ignore
@@ -167,30 +214,55 @@ export default function DuelArea({
     }
 
     setSpeechError(null);
+    setStillListening(false);
     setHeardText("");
+    gotResultRef.current = false;
     const recognition = new SpeechRecognition();
     recognition.lang = "pl-PL"; // Recognize as Polish pronunciation
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
 
     recognition.onstart = () => {
       setIsListening(true);
+      // Mid-timeout reassurance: at ~half the inactivity window, reassure the
+      // player we're still listening (shown in place of the error banner).
+      reassureTimerRef.current = window.setTimeout(() => setStillListening(true), 2500);
+      // Inactivity auto-stop: if nothing is recognised within 5s, stop cleanly.
+      inactivityTimerRef.current = window.setTimeout(() => {
+        try {
+          recognitionRef.current?.stop();
+        } catch {
+          /* ignore */
+        }
+      }, 5000);
     };
 
     recognition.onresult = (event: any) => {
+      gotResultRef.current = true;
+      clearVoiceTimers();
       const result = event.results[0][0].transcript;
       setHeardText(result);
+      setStillListening(false);
       setIsListening(false);
       handleVoiceTranscript(result);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
+      clearVoiceTimers();
       setIsListening(false);
-      setSpeechError(t.speechNotHeard);
+      setStillListening(false);
+      // "aborted" / "no-speech" after a manual or timer stop is not a real error
+      // — only surface the "speak louder" hint for genuine recognition failures.
+      if (!gotResultRef.current && event?.error !== "aborted" && event?.error !== "no-speech") {
+        setSpeechError(t.speechNotHeard);
+      }
     };
 
     recognition.onend = () => {
+      clearVoiceTimers();
       setIsListening(false);
+      setStillListening(false);
     };
 
     recognition.start();
@@ -530,15 +602,23 @@ export default function DuelArea({
             </div>
           </div>
 
-          {/* Speech-error / hint banner */}
-          {speechError && (
+          {/* Speech banner: calm "still listening" reassurance while active,
+              or the coral "speak louder" hint after a genuine failure. */}
+          {isListening && stillListening ? (
+            <div className="shrink-0 text-center">
+              <p className="text-[10px] text-[#24456B] font-bold inline-flex items-center justify-center gap-1.5 bg-[#BDEBFF] border-2 border-[#24456B] py-1 px-3 rounded-full">
+                <Mic className="h-3 w-3 text-[#24456B] shrink-0" />
+                <span className="truncate max-w-[230px]">{t.speechStillListening}</span>
+              </p>
+            </div>
+          ) : speechError ? (
             <div className="shrink-0 text-center">
               <p className="text-[10px] text-[#5A3A2A] font-bold inline-flex items-center justify-center gap-1.5 bg-[#FF7A62]/15 border-2 border-[#5A3A2A] py-1 px-3 rounded-full">
                 <AlertCircle className="h-3 w-3 text-coral shrink-0" />
                 <span className="truncate max-w-[230px]">{speechError}</span>
               </p>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Mic is no longer pinned to the bottom of the image card — it lives
@@ -650,9 +730,9 @@ export default function DuelArea({
           <div className="px-3 mt-2">
             <button
               type="button"
-              onClick={startSpeechRecognition}
+              onClick={toggleSpeech}
               className={`w-full h-14 rounded-2xl flex items-center justify-center gap-2 border-2 border-[#5A3A2A] shadow-[0_4px_0_#5A3A2A] active:translate-y-0.5 active:shadow-[0_1px_0_#5A3A2A] transition cursor-pointer ${
-                isListening ? "bg-[#E95050] scale-[1.01]" : "bg-[#E95050] hover:bg-[#FF6464]"
+                isListening ? "bg-[#E95050] scale-[1.01]" : "bg-[#24456B] hover:bg-[#2B5180]"
               }`}
               title={t.voiceReport}
             >
