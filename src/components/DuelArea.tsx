@@ -378,7 +378,7 @@ export default function DuelArea({
 
   return (
     <div
-      className={`w-full h-full max-h-full min-h-0 mx-auto max-w-sm flex flex-col justify-between border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa transition-colors duration-300 ${
+      className={`w-full h-full max-h-full min-h-0 mx-auto max-w-full flex flex-col justify-between border-2 border-[#5A3A2A] rounded-[24px] shadow-[0_6px_0_#5A3A2A] overflow-hidden relative z-60 font-sans text-cocoa transition-colors duration-300 ${
         dangerMode ? "bg-[#FFE3DE]" : "bg-[#FFF4DF]"
       }`}
     >

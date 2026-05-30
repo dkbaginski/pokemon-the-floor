@@ -207,7 +207,8 @@ function getPokemonDescription(id: number, name: string, _types: string[], langu
 // --- GŁÓWNY KOMPONENT WIDOKU POKÉDEXU ---
 export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, onClose, playerActiveTypes = [], language, t }: PokedexViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
   const [selectedPokeDetail, setSelectedPokeDetail] = useState<Pokemon | null>(null);
   // Status filter — driven by tapping the green CAUGHT / blue SEEN tiles in
   // the stats row. `null` means "no status filter" (show everything that
@@ -228,12 +229,12 @@ export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, 
     if (selectedStatus === "seen" && !isSeenOnly) return false;
     const matchesSearch = poke.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           poke.id.toString() === searchTerm;
-    const matchesType = !selectedType || poke.types.includes(selectedType);
+    const matchesType = selectedTypes.length === 0 || poke.types.some((ty) => selectedTypes.includes(ty));
     return matchesSearch && matchesType;
   });
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
+    <div className="absolute inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col justify-start font-sans select-none overflow-hidden text-cocoa">
 
       {/* Red gradient header bar (design 04) — only on list view, hidden in detail */}
       {!selectedPokeDetail && (
@@ -338,53 +339,141 @@ export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, 
         </div>
       )}
 
-      <div className="mx-auto max-w-lg px-4 pt-3 pb-2 w-full flex-1 flex flex-col overflow-hidden">
+      <div className="mx-auto w-full px-4 pt-3 pb-2 flex-1 flex flex-col overflow-hidden">
 
-        {/* Filters Panel */}
-        <div className="space-y-3 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-cocoa/50" />
-            <input
-              type="text"
-              placeholder={t.searchPlaceholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-2xl bg-white-frost border-2 border-[#5A3A2A] py-3 pl-10 pr-4 text-sm text-cocoa placeholder-cocoa/40 focus:border-[#24456B] focus:ring-1 focus:ring-[#24456B] focus:outline-none shadow-sm"
-            />
-          </div>
+        {/* Filters Panel with Premium Sub-controls */}
+        <div className="space-y-3 mb-5 shrink-0 relative">
+          <div className="flex gap-2 items-center">
+            
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-cocoa/50" />
+              <input
+                type="text"
+                placeholder={t.searchPlaceholder}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full h-11 rounded-2xl bg-white border-2 border-[#5A3A2A] pl-10 pr-4 text-sm text-cocoa placeholder-cocoa/40 focus:border-[#24456B] focus:outline-none shadow-[0_2.5px_0_#5A3A2A] font-semibold"
+              />
+            </div>
 
-          {/* Types pills selector */}
-          <div className="flex flex-row flex-nowrap gap-1.5 overflow-x-auto pb-2 scrollbar-none select-none">
-            <button
-              onClick={() => setSelectedType(null)}
-              className={`shrink-0 rounded-xl px-3.5 py-1.5 text-[10px] font-black uppercase transition tracking-wider border-2 border-[#5A3A2A] ${
-                selectedType === null
-                  ? "bg-[#FFD84D] text-[#24456B] shadow-[0_2px_0_#24456B]"
-                  : "bg-white hover:bg-cafe-beige text-cocoa shadow-[0_2px_0_#5A3A2A]"
-              }`}
-            >
-              {t.filterAll}
-            </button>
-            {Object.entries(POKEMON_TYPES_PL).map(([typeKey]) => (
+            {/* Type Filter Select Trigger */}
+            <div className="relative flex items-center gap-1.5 shrink-0">
               <button
-                key={typeKey}
-                onClick={() => setSelectedType(typeKey)}
-                className={`shrink-0 rounded-xl px-3.5 py-1.5 text-[10px] font-black uppercase transition tracking-wider flex items-center gap-1 border-2 border-[#5A3A2A] ${
-                  selectedType === typeKey
-                    ? "bg-[#24456B] text-white-frost shadow-[0_2px_0_#24456B]"
-                    : "bg-white hover:bg-cafe-beige text-cocoa shadow-[0_2px_0_#5A3A2A]"
+                onClick={() => setIsTypeMenuOpen(!isTypeMenuOpen)}
+                className={`flex items-center justify-center gap-1.5 px-3.5 h-11 rounded-2xl border-2 border-[#5A3A2A] text-xs font-black uppercase transition shrink-0 select-none shadow-[0_2.5px_0_#5A3A2A] hover:bg-[#F2D5A7]/20 cursor-pointer active:translate-y-[1px] active:shadow-[0_1px_0_#5A3A2A] ${
+                  selectedTypes.length > 0
+                    ? "bg-[#FFD84D] text-[#24456B]"
+                    : "bg-white text-cocoa"
                 }`}
               >
-                <span>{getTypeName(typeKey, language)}</span>
+                <span>
+                  {language === "pl" ? "Typy" : "Types"}
+                  {selectedTypes.length > 0 ? ` (${selectedTypes.length})` : ""}
+                </span>
+                <span className="text-[9px] opacity-80">▼</span>
               </button>
-            ))}
+
+              {/* Clear button - instantly clears without opening the popover */}
+              {selectedTypes.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedTypes([]);
+                  }}
+                  className="w-11 h-11 rounded-2xl bg-[#E95050] text-white hover:bg-[#D43D3D] flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_2.5px_0_#5A3A2A] cursor-pointer active:translate-y-[1px] active:shadow-[0_1px_0_#5A3A2A] transition-all"
+                  title={language === "pl" ? "Wyczyść" : "Clear"}
+                >
+                  <span className="text-sm font-black">✕</span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Floating Dropdown Selector Panel */}
+          {isTypeMenuOpen && (
+            <>
+              {/* Invisible full-bleed backdrop overlay to allow dismissing by clicking anywhere else */}
+              <div
+                className="fixed inset-0 z-40 bg-transparent"
+                onClick={() => setIsTypeMenuOpen(false)}
+              />
+
+              {/* Interactive Modal-Card */}
+              <div className="absolute right-0 top-full mt-2 w-72 bg-[#FFFDF9] border-2 border-[#5A3A2A] rounded-2xl p-3.5 shadow-[0_6px_0_#5A3A2A] z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="text-[10px] font-black uppercase text-[#5A3A2A]/60 tracking-wider mb-2 pb-1 border-b border-[#5A3A2A]/15 flex justify-between items-center">
+                  <span>{language === "pl" ? "Filtruj według typu" : "Filter by type"}</span>
+                  <span className="font-mono text-[9px] lowercase text-[#5A3A2A]/40">({Object.keys(POKEMON_TYPES_PL).length})</span>
+                </div>
+
+                {/* Reset Option is styled nicely with high contrast */}
+                <button
+                  onClick={() => {
+                    setSelectedTypes([]);
+                  }}
+                  className={`w-full mb-3 rounded-xl py-2 text-[10px] font-black uppercase transition border-2 border-[#5A3A2A] text-center cursor-pointer ${
+                    selectedTypes.length === 0
+                      ? "bg-white text-cocoa/40 border-[#5A3A2A]/40 cursor-not-allowed"
+                      : "bg-[#E95050] text-white hover:bg-[#D43D3D] shadow-[0_2px_0_#5A3A2A]"
+                  }`}
+                  disabled={selectedTypes.length === 0}
+                >
+                  {language === "pl" ? "Wyczyść wszystkie" : "Clear all"}
+                </button>
+
+                {/* Highly structured 2-column scrollable grid of beautiful, color-coded badges */}
+                <div className="grid grid-cols-2 gap-1.5 max-h-[180px] overflow-y-auto pr-0.5 scrollbar-thin scrollbar-thumb-cocoa/30 scrollbar-track-transparent">
+                  {Object.entries(POKEMON_TYPES_PL).map(([typeKey]) => {
+                    const typeName = getTypeName(typeKey, language);
+                    const typeBg = POKEMON_TYPES_PL[typeKey]?.bgHex || "#A9E6CF";
+                    const isSelected = selectedTypes.includes(typeKey);
+
+                    return (
+                      <button
+                        key={typeKey}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedTypes(selectedTypes.filter((t) => t !== typeKey));
+                          } else {
+                            setSelectedTypes([...selectedTypes, typeKey]);
+                          }
+                        }}
+                        className={`rounded-xl py-2 px-2.5 text-[10px] font-black uppercase transition border-2 border-[#5A3A2A] text-left flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-[#24456B] text-white shadow-[0_2px_0_#24456B]"
+                            : "bg-white hover:bg-[#F2D5A7]/10 text-cocoa shadow-[0_2px_0_#5A3A2A]"
+                        }`}
+                      >
+                        <span className="truncate">{typeName}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isSelected && <span className="text-[#FFD84D] font-sans text-[10px] font-black">✓</span>}
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-[#5A3A2A]/20 shrink-0 shadow-sm"
+                            style={{ backgroundColor: typeBg }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Confirm/Apply button */}
+                <button
+                  onClick={() => {
+                    setIsTypeMenuOpen(false);
+                  }}
+                  className="w-full mt-3 rounded-xl py-2.5 text-[10px] font-black uppercase transition border-2 border-[#5A3A2A] bg-[#FFD84D] text-[#24456B] shadow-[0_2.5px_0_#24456B] text-center cursor-pointer hover:brightness-105 active:translate-y-[1px] active:shadow-[0_1.5px_0_#24456B]"
+                >
+                  {language === "pl" ? "Zatwierdź" : "Confirm"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Pokemon Grid Scrollable Wrapper */}
         <div className="flex-1 overflow-y-auto min-h-0 pr-1 pb-4">
           {/* Empty state (design 04a) — only when truly nothing collected and no filter active */}
-          {seenSet.size === 0 && !searchTerm && !selectedType ? (
+          {seenSet.size === 0 && !searchTerm && selectedTypes.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-[#5A3A2A] bg-white p-5 text-center flex flex-col items-center gap-2 mt-2 shadow-[0_3px_0_#5A3A2A]">
               <div className="h-16 w-16 rounded-full bg-[#E95050]/15 border-2 border-dashed border-[#5A3A2A] flex items-center justify-center">
                 <div className="font-mono font-black text-[10px] text-[#5A3A2A]/70">
@@ -457,7 +546,7 @@ export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, 
         return (
           <div
             id="pokedex-detail-fullbleed"
-            className="fixed inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa"
+            className="absolute inset-x-0 top-0 bottom-[68px] z-60 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa"
           >
             {/* Top bar — POKÉ THE FLOOR brand acting as the "home" affordance,
                 mirroring the main app top bar (which the detail overlay covers).
