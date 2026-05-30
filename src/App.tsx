@@ -542,7 +542,7 @@ export default function App() {
   const showHeaderActions = screen !== "start" && screen !== "name_entry" && screen !== "duel" && !showPokedex && !showHelp;
 
   return (
-    <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl mx-auto h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between shadow-[0_6px_12px_rgba(90,58,42,0.18)] relative border-x-2 border-[#5A3A2A]/40 overflow-hidden font-sans">
+    <div className="w-full sm:max-w-[480px] mx-auto h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between relative sm:border-x-2 sm:border-[#5A3A2A]/25 overflow-hidden font-sans shadow-[0_6px_30px_rgba(90,58,42,0.18)]">
 
       {/* --- STANDARD TOP HEADER --- */}
       <header className="h-16 sticky top-0 z-30 bg-cream-base border-b-2 border-cocoa/30 px-4 flex items-center justify-between font-sans select-none shrink-0">
@@ -605,7 +605,7 @@ export default function App() {
             {/* Subtle dotted backdrop */}
             <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
 
-            <div className="relative w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 text-left font-sans select-none max-w-sm mx-auto overflow-hidden">
+            <div className="relative w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 text-left font-sans select-none overflow-hidden">
 
               {/* HERO — single yellow radial-gradient card (header + Pikachu sub-card + title) */}
               <div
@@ -795,7 +795,7 @@ export default function App() {
           };
 
           return (
-            <div className="relative w-full h-full flex flex-col justify-center gap-3 px-1 py-2 font-sans select-none max-w-sm mx-auto overflow-hidden">
+            <div className="relative w-full h-full flex flex-col justify-center gap-3 px-1 py-2 font-sans select-none overflow-hidden">
               {/* dotted backdrop */}
               <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
 
@@ -1100,7 +1100,7 @@ export default function App() {
           const playerTint = PLAYER_ROSTER.find((p) => p.id === playerAvatarId)?.bg ?? "#BDEBFF";
 
           return (
-            <div className="w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 font-sans select-none max-w-sm mx-auto overflow-hidden">
+            <div className="w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 font-sans select-none overflow-hidden">
 
               {/* Header card — duel meta */}
               <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] px-3 py-2 shadow-[0_3px_0_#5A3A2A]">
@@ -1262,7 +1262,7 @@ export default function App() {
 
         {/* SCREEN 5: DUEL WIN CELEBRATION (design 10) */}
         {screen === "duel_win" && (
-          <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none max-w-sm mx-auto overflow-hidden">
+          <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
 
             {/* Trophy circle */}
             <div className="shrink-0 mx-auto relative mt-2">
@@ -1368,7 +1368,7 @@ export default function App() {
           const lastPoke = duelStats.lastPokemonId ? POKEMON_LIST.find((p) => p.id === duelStats.lastPokemonId) : null;
 
           return (
-            <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none max-w-sm mx-auto overflow-hidden">
+            <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
 
               {/* Ghost avatar + K.O. */}
               <div className="shrink-0 mx-auto relative mt-2">
@@ -1474,7 +1474,7 @@ export default function App() {
 
         {/* SCREEN 7: ALL KANTO CONQUERED CHAMPION VICTORY */}
         {screen === "victory" && (
-          <div className="space-y-6 pt-2 text-center select-none max-w-sm mx-auto text-cocoa">
+          <div className="space-y-6 pt-2 text-center select-none text-cocoa">
             <div className="h-32 w-32 rounded-full bg-[#FFD84D] border-2 border-[#5A3A2A] shadow-[0_4px_0_rgba(90,58,42,0.18)] flex items-center justify-center mx-auto my-2 relative">
               <Trophy className="h-16 w-16 text-[#24456B] drop-shadow-md" />
               <div className="absolute inset-0 rounded-full animate-ping border-2 border-cocoa/30" />
@@ -1539,7 +1539,7 @@ export default function App() {
         const isGoal3Done = unlockedPokemonIds.length >= 151;
 
         return (
-          <div className="fixed inset-x-0 top-16 bottom-[68px] z-40 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
+          <div className="absolute inset-x-0 top-16 bottom-[68px] z-40 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
             {/* Header card */}
             <div className="shrink-0 px-3 pt-3 pb-2">
@@ -1700,14 +1700,14 @@ export default function App() {
       })()}
 
       {showHelp && (
-        <div className="fixed inset-x-0 top-16 bottom-[68px] z-20 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
+        <div className="absolute inset-x-0 top-16 bottom-[68px] z-20 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
           {/* Scrollable body — the overflow-y-auto wraps the full width so
               touch scroll responds anywhere on the viewport, not just inside
               the centred max-w-lg column. Content is then centred inside the
               scroll container. */}
           <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="mx-auto max-w-lg w-full px-3 pt-3 pb-2 flex flex-col gap-2.5">
+            <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2.5">
 
             {/* Header card "JAK GRAĆ?" */}
             <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] px-3 py-2.5 shadow-[0_3px_0_#5A3A2A]">
@@ -1810,7 +1810,7 @@ export default function App() {
               Lives outside the scroll container so it doesn't move with
               the content. */}
           <div className="shrink-0 border-t-2 border-[#5A3A2A] bg-[#FFF4DF]">
-            <div className="mx-auto max-w-lg w-full px-3 pt-2 pb-3">
+            <div className="w-full px-3 pt-2 pb-3">
               <button
                 onClick={() => setShowHelp(false)}
                 className="w-full btn-core-yellow py-3.5"
@@ -1832,8 +1832,8 @@ export default function App() {
         return (
           <footer
             data-tutorial-target="nav"
-            className="fixed bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2 px-6 flex justify-around items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
-            style={{ position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 50 }}
+            className="absolute bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2 px-6 flex justify-around items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
+            style={{ zIndex: 50 }}
           >
             <button
               onClick={() => {
@@ -1882,7 +1882,7 @@ export default function App() {
       )}
 
       {showResetConfirm && (
-        <div className="fixed inset-0 z-[60] bg-cocoa/55 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="absolute inset-0 z-[60] bg-cocoa/55 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm w-[calc(100%-2rem)] bg-white border-2 border-[#5A3A2A] rounded-[24px] px-6 py-4 text-center space-y-3 shadow-[0_6px_0_#5A3A2A] relative overflow-hidden">
             {/* Striped top accent — irreversible signal */}
             <div
