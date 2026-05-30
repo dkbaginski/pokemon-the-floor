@@ -1309,12 +1309,14 @@ export default function App() {
 
             {/* Nowe w Pokédexie */}
             {duelStats.newlyUnlocked.length > 0 && (
-              <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#A9E6CF] p-2.5 shadow-[0_3px_0_#5A3A2A] relative">
-                <div className="absolute -top-2 -right-2 bg-[#1B2840] text-[#FFD84D] font-display font-black text-[10px] px-2 py-0.5 rounded-full border-2 border-[#5A3A2A]">
-                  +{duelStats.newlyUnlocked.length}
-                </div>
-                <div className="text-[9px] font-black uppercase tracking-widest text-[#5A3A2A] text-left mb-1.5">
-                  ✦ {t.winNewInDexTitle}
+              <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#A9E6CF] p-2.5 shadow-[0_3px_0_#5A3A2A]">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-[#5A3A2A] text-left">
+                    ✦ {t.winNewInDexTitle}
+                  </div>
+                  <div className="shrink-0 bg-[#1B2840] text-[#FFD84D] font-display font-black text-[10px] leading-none px-2 py-1 rounded-full border-2 border-[#5A3A2A]">
+                    +{duelStats.newlyUnlocked.length}
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
                   {duelStats.newlyUnlocked.slice(0, 8).map((pid) => (
@@ -1584,16 +1586,17 @@ export default function App() {
             <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 space-y-2.5">
               {historyTab === "goals" ? (
                 <div className="relative">
-                  {/* Dashed timeline rail threading the node circles */}
-                  <div aria-hidden="true" className="absolute left-[26px] top-[26px] bottom-[54px] border-l-2 border-dashed border-[#5A3A2A]/35" />
-                  <div className="relative space-y-2.5">
+                  {/* Dashed timeline rail threading the node circles (behind cards,
+                      visible in the gaps; ends at the final node's centre). */}
+                  <div aria-hidden="true" className="absolute left-[25px] top-[26px] bottom-[60px] border-l-2 border-dashed border-[#5A3A2A]/45 z-0" />
+                  <div className="relative z-10 space-y-2.5">
                   {/* Goal 1 */}
-                  <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#A9E6CF] p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
+                  <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#A9E6CF] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
                       1
                     </div>
                     <div className="flex-1">
-                      <span className="inline-block bg-white text-[#24456B] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
+                      <span className="inline-block bg-[#A9E6CF] text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
                         {isGoal1Done ? t.histStatusCompleted : t.histStatusInProgress}
                       </span>
                       <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal1Title}</div>
@@ -1631,7 +1634,7 @@ export default function App() {
                         <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">{t.histStatusFinal}</span>
                       </div>
                       <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">
-                        {t.histGoal3Title.replace("151", "")}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{tp("pokemonNoun", 151)}
+                        {t.histGoal3Title.split("151")[0]}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{t.histGoal3Title.split("151")[1] ?? ""}
                       </div>
                       <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">
                         {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
