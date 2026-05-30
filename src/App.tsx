@@ -830,8 +830,6 @@ export default function App() {
                   {/* board-tile-style nick badge — mirrors "TY · NAME" on the floor */}
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
                     <div className="bg-white border-2 border-[#5A3A2A] rounded-full px-3.5 py-1 shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5 whitespace-nowrap">
-                      <span className="font-display font-black text-[11px] uppercase tracking-wider text-[#E95050] italic">{t.vsPlayerLabel}</span>
-                      <span className="text-[#5A3A2A]/40 font-black text-[11px]">·</span>
                       <span className={`font-display font-black text-[13px] uppercase tracking-wide italic ${trimmed ? "text-[#24456B]" : "text-[#5A3A2A]/35"}`}>
                         {previewName}
                       </span>
@@ -842,7 +840,7 @@ export default function App() {
                 {/* PROMPT */}
                 <div className="shrink-0 text-center px-1">
                   <span className="block text-[10px] uppercase tracking-widest text-[#24456B] font-display font-black">{t.nameEntryRegister}</span>
-                  <h1 className="font-display text-[24px] font-black tracking-tight leading-none italic uppercase text-[#5A3A2A] mt-0.5">{t.nameEntryTitle}</h1>
+                  <h1 className="font-display text-[24px] font-black leading-tight uppercase text-[#5A3A2A] mt-0.5">{t.nameEntryTitle}</h1>
                   <p className="text-[11px] text-[#5A3A2A]/85 leading-snug font-semibold pt-1 max-w-[300px] mx-auto">
                     {t.nameEntrySub}
                   </p>
@@ -1097,6 +1095,10 @@ export default function App() {
             selectedOpponent.difficulty === "easy" ? "#A9E6CF" :
             selectedOpponent.difficulty === "medium" ? "#FFD84D" : "#FF7A62";
 
+          // Player avatar tile uses the partner's type-tint (same source as the
+          // name-entry partner picker) so e.g. Jigglypuff reads as pink here too.
+          const playerTint = PLAYER_ROSTER.find((p) => p.id === playerAvatarId)?.bg ?? "#BDEBFF";
+
           return (
             <div className="w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 font-sans select-none max-w-sm mx-auto overflow-hidden">
 
@@ -1117,10 +1119,13 @@ export default function App() {
 
               {/* VS card with two avatars */}
               <div className="shrink-0 rounded-3xl border-2 border-[#5A3A2A] bg-white p-3 shadow-[0_4px_0_#5A3A2A] relative">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
                   {/* Player */}
                   <div className="flex flex-col items-center gap-1.5">
-                    <div className="w-full aspect-square rounded-2xl border-2 border-[#5A3A2A] bg-[#BDEBFF] flex items-center justify-center shadow-[0_2px_0_#5A3A2A] overflow-hidden">
+                    <div
+                      className="w-full aspect-square rounded-2xl border-2 border-[#5A3A2A] flex items-center justify-center shadow-[0_2px_0_#5A3A2A] overflow-hidden"
+                      style={{ background: playerTint }}
+                    >
                       <img
                         src={getPokemonImageUrl(playerAvatarId)}
                         alt=""
@@ -1133,8 +1138,10 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* VS pill */}
-                  <div className="bg-[#1B2840] text-white font-display font-black text-xs italic px-3 py-1.5 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
+                  {/* VS pill — vertically centred against the avatar squares
+                      (columns are top-aligned, so push the pill down by ~half
+                      the avatar height which equals half the column width). */}
+                  <div className="self-start mt-[28%] bg-[#1B2840] text-white font-display font-black text-xs italic px-3 py-1.5 rounded-full border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
                     {t.vsVsLabel}
                   </div>
 
@@ -1248,6 +1255,7 @@ export default function App() {
             onSeePokemon={handleSeePokemon}
             onDuelFinish={handleDuelFinish}
             language={language}
+            playerName={playerName}
             t={t}
           />
         )}

@@ -12,6 +12,7 @@ interface DuelAreaProps {
   onUnlockPokemon: (id: number) => void;
   onSeePokemon?: (id: number) => void;
   language: "pl" | "en";
+  playerName?: string;
   t: any;
 }
 
@@ -24,6 +25,7 @@ export default function DuelArea({
   onUnlockPokemon,
   onSeePokemon,
   language,
+  playerName,
   t
 }: DuelAreaProps) {
   // --- Timers State ---
@@ -53,6 +55,12 @@ export default function DuelArea({
   // `passPenaltyKey` increments on every pass so the floating "−5s" tag near
   // the player timer remounts and replays its CSS animation each time.
   const [passPenaltyKey, setPassPenaltyKey] = useState<number>(0);
+
+  // --- Opponent PAS flash — mirrors the player's pass treatment but ONLY on
+  // the opponent timer card, so it's clearly visible when the AI passes. ---
+  const [opponentPassFlashUntil, setOpponentPassFlashUntil] = useState<number>(0);
+  const isOpponentPassFlash = opponentPassFlashUntil > Date.now();
+  const [opponentPassPenaltyKey, setOpponentPassPenaltyKey] = useState<number>(0);
 
   // --- References for visual timers ---
   const intervalRef = useRef<number | null>(null);
@@ -260,6 +268,14 @@ export default function DuelArea({
     return () => clearTimeout(t);
   }, [passFlashUntil]);
 
+  // Same flip-off tick for the opponent pass flash.
+  useEffect(() => {
+    if (opponentPassFlashUntil === 0) return;
+    if (opponentPassFlashUntil <= Date.now()) return;
+    const t = setTimeout(() => setOpponentPassFlashUntil((v) => (v <= Date.now() ? 0 : v)), opponentPassFlashUntil - Date.now() + 50);
+    return () => clearTimeout(t);
+  }, [opponentPassFlashUntil]);
+
   // --- State changes between active participants ---
   const switchToOpponent = () => {
     if (duelEnded) return;
@@ -315,7 +331,12 @@ export default function DuelArea({
           return Math.round(afterPenalty * 10) / 10;
         });
 
-        setOpponentGuessText(t.passNotification);
+        // Surface the pass on the opponent timer (red flash + "PAS" pill +
+        // floating −5s), the same way the player's pass reads. No image
+        // bubble for passes — the timer is the single, clear signal.
+        setOpponentPassFlashUntil(Date.now() + 450);
+        setOpponentPassPenaltyKey((k) => k + 1);
+        setOpponentGuessText("");
 
         const nextPoke = getNextPokemonFromPool();
         setCurrentPokemon(nextPoke);
@@ -351,6 +372,7 @@ export default function DuelArea({
   };
 
   const opponentLabel = `${t.botLabel} ${opponent.number}`;
+  const playerLabel = playerName || t.playerTileLabel;
   const lowTime = playerTime < 10 && activePlayer === "player";
   const dangerMode = lowTime || isPassFlash;
 
@@ -383,15 +405,15 @@ export default function DuelArea({
           )}
           <div className="flex items-center justify-between">
             <span
-              className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+              className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border truncate max-w-[100px] ${
                 isPassFlash
                   ? "bg-[#E95050] text-white border-[#5A3A2A]"
                   : lowTime
                   ? "bg-[#E95050] text-white border-[#5A3A2A] animate-pulse"
-                  : "bg-[#5A3A2A] text-[#FFD84D] border-[#5A3A2A]"
+                  : "bg-[#24456B] text-white border-[#5A3A2A]"
               }`}
             >
-              {isPassFlash ? `× ${t.duelPasFlashPill}` : lowTime ? `⚠ ${t.duelHurryPill}` : t.duelYourTurnPill}
+              {isPassFlash ? `× ${t.duelPasFlashPill}` : lowTime ? `⚠ ${t.duelHurryPill}` : playerLabel}
             </span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
@@ -416,13 +438,29 @@ export default function DuelArea({
 
         {/* Opponent timer */}
         <div
-          className={`rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
-            activePlayer === "opponent" ? "bg-[#FFD84D]" : "bg-white-frost"
+          className={`relative rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
+            isOpponentPassFlash ? "bg-[#FFD0CA]" : activePlayer === "opponent" ? "bg-[#FFD84D]" : "bg-white-frost"
           }`}
         >
+          {/* Floating −5s on the opponent's pass — mirrors the player timer. */}
+          {opponentPassPenaltyKey > 0 && (
+            <span
+              key={opponentPassPenaltyKey}
+              className="pointer-events-none absolute -top-3 right-2 z-30 animate-penalty-float font-mono font-black text-[13px] text-[#E95050] drop-shadow-[0_1px_0_#5A3A2A]"
+              aria-hidden="true"
+            >
+              −5s
+            </span>
+          )}
           <div className="flex items-center justify-between">
-            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#A9E6CF] text-[#5A3A2A] border border-[#5A3A2A] truncate max-w-[100px]">
-              ✓ {opponentLabel}
+            <span
+              className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border truncate max-w-[100px] ${
+                isOpponentPassFlash
+                  ? "bg-[#E95050] text-white border-[#5A3A2A]"
+                  : "bg-[#5A3A2A] text-[#FFD84D] border-[#5A3A2A]"
+              }`}
+            >
+              {isOpponentPassFlash ? `× ${t.duelPasFlashPill}` : opponentLabel}
             </span>
           </div>
           <div className="flex items-baseline gap-1 mt-1">
@@ -485,7 +523,7 @@ export default function DuelArea({
               {activePlayer === "opponent" && opponentGuessText && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-[#FFD84D] text-[#24456B] border-2 border-[#24456B] px-3 py-1 rounded-full font-display font-black text-xs uppercase tracking-wider z-20 animate-bounce shadow-[0_3px_0_#24456B]">
-                    {opponentGuessText === t.passNotification ? t.passNotification : `${opponentGuessText}!`}
+                    {`${opponentGuessText}!`}
                   </div>
                 </div>
               )}
