@@ -16,8 +16,13 @@ import {
   ShieldCheck,
   ChevronRight,
   Check,
-  X
+  X,
+  Volume2,
+  VolumeX,
+  Menu
 } from "lucide-react";
+import { audio } from "./lib/audio";
+import GameSettings from "./components/GameSettings";
 import {
   NavBoardIcon,
   NavPokedexIcon,
@@ -143,6 +148,8 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showBattleLog, setShowBattleLog] = useState(false);
   const [recentlyConqueredCellIds, setRecentlyConqueredCellIds] = useState<number[]>([]);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [isMutedState, setIsMutedState] = useState(() => audio.getMuted());
 
   interface LogItem {
     key: string;
@@ -169,6 +176,19 @@ export default function App() {
   const botName = (b: Bot | null): string => (b ? `${t.botLabel} ${b.number}` : "");
 
   // --- Initialize Grid, Pokedex & Seen from LocalStorage (+ migrate legacy schema) ---
+  // --- Audio Sound & Music Router ---
+  useEffect(() => {
+    if (screen === "start" || screen === "name_entry") {
+      audio.playBGM("intro");
+    } else if (screen === "board" || screen === "challenge") {
+      audio.playBGM("board");
+    } else if (screen === "duel") {
+      audio.playBGM("duel");
+    } else {
+      audio.stopBGM();
+    }
+  }, [screen]);
+
   useEffect(() => {
     const savedGrid = localStorage.getItem("the_floor_pokemon_grid");
     if (savedGrid) {
@@ -276,6 +296,7 @@ export default function App() {
   const handleUnlockPokemon = (id: number) => {
     setUnlockedPokemonIds((prev) => {
       if (prev.includes(id)) return prev;
+      audio.playSFX("capture");
       const updated = [...prev, id];
       localStorage.setItem("the_floor_pokemon_pokedex", JSON.stringify(updated));
       return updated;
@@ -405,12 +426,14 @@ export default function App() {
       ].slice(0, 10));
 
       const allPlayer = updatedGrid.every((c) => c.currentOwnerId === "player");
+      audio.playSFX("win");
       if (allPlayer) {
         setScreen("victory");
       } else {
         setScreen("duel_win");
       }
     } else {
+      audio.playSFX("lose");
       if (defenseMode && selectedCell && selectedOpponent) {
         // Defense duel lost — AI actually seizes selectedCell. The loss is
         // surfaced on the duel_lose screen (08) + a permanent entry in the
@@ -540,61 +563,55 @@ export default function App() {
   };
 
   const showHeaderActions = screen !== "start" && screen !== "name_entry" && screen !== "duel" && !showPokedex && !showHelp;
+  const isHeaderVisible = screen !== "start" && screen !== "name_entry" && screen !== "duel" && screen !== "challenge" && !showPokedex && !showHelp;
 
   return (
-    <div className="w-full sm:max-w-[480px] mx-auto h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between relative sm:border-x-2 sm:border-[#5A3A2A]/25 overflow-hidden font-sans shadow-[0_6px_30px_rgba(90,58,42,0.18)]">
+    <div className="w-full h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between relative overflow-hidden font-sans shadow-[0_6px_30px_rgba(90,58,42,0.18)]">
 
       {/* --- STANDARD TOP HEADER --- */}
-      <header className="h-16 sticky top-0 z-30 bg-cream-base border-b-2 border-cocoa/30 px-4 flex items-center justify-between font-sans select-none shrink-0">
-        <div
-          onClick={() => {
-            setScreen("board");
-            setShowPokedex(false);
-            setShowHelp(false);
-            setShowBattleLog(false);
-          }}
-          className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
-          title={t.tipBackToMenu}
-        >
-          <div className="bg-[#1B2840] text-white font-black text-[11px] pl-1 pr-2.5 py-1 rounded-full tracking-tight uppercase italic border-2 border-[#1B2840] shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5">
-            <PokeBallLogoIcon size={16} ink="#1B2840" red="#DC2630" />
-            <span>POKÉ</span>
-          </div>
-          <span className="font-display font-black tracking-tight text-xs text-[#5A3A2A] uppercase italic">THE FLOOR</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => changeLanguage(language === "pl" ? "en" : "pl")}
-            className="flex items-center justify-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] text-[10px] sm:text-xs font-black tracking-wider uppercase transition cursor-pointer text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]"
-            title={t.tipSwitchLang}
+      {isHeaderVisible && (
+        <header className="h-16 sticky top-0 z-30 bg-cream-base border-b-2 border-cocoa/30 px-4 flex items-center justify-between font-sans select-none shrink-0">
+          <div
+            onClick={() => {
+              setScreen("board");
+              setShowPokedex(false);
+              setShowHelp(false);
+              setShowBattleLog(false);
+            }}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 active:scale-95 transition-all"
+            title={t.tipBackToMenu}
           >
-            <GlobeIcon size={14} color="#24456B" strokeWidth={2.2} />
-            <span className="font-mono text-[10px] tracking-wider">{language === "pl" ? "PL" : "EN"}</span>
-          </button>
+            <div className="bg-[#1B2840] text-white font-black text-[11px] pl-1 pr-2.5 py-1 rounded-full tracking-tight uppercase italic border-2 border-[#1B2840] shadow-[0_2px_0_#5A3A2A] flex items-center gap-1.5">
+              <PokeBallLogoIcon size={16} ink="#1B2840" red="#DC2630" />
+              <span>POKÉ</span>
+            </div>
+            <span className="font-display font-black tracking-tight text-xs text-[#5A3A2A] uppercase italic">THE FLOOR</span>
+          </div>
 
-          {showHeaderActions && (
-            <button
-              onClick={() => setShowBattleLog(true)}
-              className="flex items-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] transition cursor-pointer shadow-[0_2px_0_#5A3A2A]"
-              title={t.tipBattleHistory}
-            >
-              <ClockRewindIcon size={14} color="#24456B" strokeWidth={2.2} />
-              <span className="text-[#5A3A2A] text-[10px] uppercase tracking-widest font-black">{t.logiBtn}</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {showHeaderActions && (
+              <button
+                onClick={() => setShowBattleLog(true)}
+                className="flex items-center gap-1 h-8 px-2.5 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] transition cursor-pointer shadow-[0_2px_0_#5A3A2A]"
+                title={t.tipBattleHistory}
+              >
+                <ClockRewindIcon size={14} color="#24456B" strokeWidth={2.2} />
+                <span className="text-[#5A3A2A] text-[10px] uppercase tracking-widest font-black">{t.logiBtn}</span>
+              </button>
+            )}
 
-          {showHeaderActions && (
-            <button
-              onClick={handleFullReset}
-              className="h-8 w-8 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] hover:text-red-500 transition cursor-pointer flex items-center justify-center shadow-[0_2px_0_#5A3A2A]"
-              title={t.tipResetGame}
-            >
-              <ResetIcon size={14} color="#5A3A2A" strokeWidth={2.2} />
-            </button>
-          )}
-        </div>
-      </header>
+            {showHeaderActions && (
+              <button
+                onClick={handleFullReset}
+                className="h-8 w-8 rounded-2xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] hover:text-red-500 transition cursor-pointer flex items-center justify-center shadow-[0_2px_0_#5A3A2A]"
+                title={t.tipResetGame}
+              >
+                <ResetIcon size={14} color="#5A3A2A" strokeWidth={2.2} />
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* --- CORE CONTENT PANELS ROUTER --- */}
       <main className={`flex-1 px-4 pt-4 pb-20 ${screen === "start" || screen === "board" || screen === "challenge" || screen === "duel" ? "overflow-hidden" : "overflow-y-auto"}`}>
@@ -742,6 +759,7 @@ export default function App() {
               <div className="shrink-0 space-y-1.5">
                 <button
                   onClick={() => {
+                    audio.playSFX("start");
                     if (playerName) {
                       setScreen("board");
                     } else {
@@ -1254,6 +1272,10 @@ export default function App() {
             onUnlockPokemon={handleUnlockPokemon}
             onSeePokemon={handleSeePokemon}
             onDuelFinish={handleDuelFinish}
+            onQuit={() => {
+              setScreen("board");
+              setActiveOpponent(null);
+            }}
             language={language}
             playerName={playerName}
             t={t}
@@ -1700,7 +1722,7 @@ export default function App() {
       })()}
 
       {showHelp && (
-        <div className="absolute inset-x-0 top-16 bottom-[68px] z-20 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
+        <div className="absolute inset-x-0 top-0 bottom-[68px] z-[45] bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
           {/* Scrollable body — the overflow-y-auto wraps the full width so
               touch scroll responds anywhere on the viewport, not just inside
@@ -1823,54 +1845,73 @@ export default function App() {
       )}
 
       {screen !== "duel" && screen !== "start" && screen !== "name_entry" && (() => {
-        const navPlayActive = (screen === "board" || screen === "start") && !showPokedex && !showHelp;
-        const navItemBase = "flex items-center gap-1.5 text-[11px] font-black tracking-wider uppercase transition cursor-pointer select-none h-10 rounded-2xl border-2";
-        const navActive = "bg-[#FFD84D] text-[#1B2840] border-[#1B2840] shadow-[0_3px_0_#1B2840] px-3.5";
-        const navInactive = "bg-transparent border-transparent text-[#5A3A2A]/55 hover:text-cocoa w-10 justify-center";
+        const navPlayActive = (screen === "board" || screen === "start") && !showPokedex && !showHelp && !showAudioSettings;
+        const navPokedexActive = showPokedex && !showHelp && !showAudioSettings;
+        const navHelpActive = showHelp && !showPokedex && !showAudioSettings;
+        const navSettingsActive = showAudioSettings;
+
+        const navItemBase = "flex items-center justify-center transition-all duration-150 cursor-pointer select-none size-11 rounded-2xl shrink-0";
+        const navActive = "bg-[#FFD84D] border-2 border-[#5A3A2A] text-[#1B2840] shadow-[0_2.5px_0_#5A3A2A] scale-110 z-10";
+        const navInactive = "bg-transparent border-transparent text-[#5A3A2A]/70 hover:text-[#5A3A2A] hover:bg-[#FFEED4]/55 active:scale-95";
         const activeColor = "#1B2840";
-        const inactiveColor = "rgba(90,58,42,0.55)";
+        const inactiveColor = "#5A3A2A";
+
         return (
           <footer
             data-tutorial-target="nav"
-            className="absolute bottom-0 left-0 w-full bg-cafe-beige border-t-2 border-[#5A3A2A] py-2 px-6 flex justify-around items-center shadow-[0_-4px_8px_rgba(90,58,42,0.18)]"
+            className="absolute bottom-0 left-0 w-full bg-[#FFF9EE] border-t-2 border-[#5A3A2A] py-2.5 px-6 flex justify-around items-center gap-1.5 shadow-[0_-4px_8px_rgba(90,58,42,0.12)]"
             style={{ zIndex: 50 }}
           >
             <button
               onClick={() => {
+                audio.playSFX("click");
                 setScreen("board");
                 setDefenseMode(false);
                 setShowPokedex(false);
                 setShowHelp(false);
+                setShowAudioSettings(false);
               }}
               className={`${navItemBase} ${navPlayActive ? navActive : navInactive}`}
               title={t.navPlay}
             >
-              <NavBoardIcon size={22} color={navPlayActive ? activeColor : inactiveColor} />
-              {navPlayActive && <span>{t.navPlay}</span>}
+              <NavBoardIcon size={24} color={navPlayActive ? activeColor : inactiveColor} />
             </button>
 
             <button
               onClick={() => {
+                audio.playSFX("click");
                 setShowPokedex(true);
                 setShowHelp(false);
+                setShowAudioSettings(false);
               }}
-              className={`${navItemBase} ${showPokedex ? navActive : navInactive}`}
+              className={`${navItemBase} ${navPokedexActive ? navActive : navInactive}`}
               title={t.navPokedex}
             >
-              <NavPokedexIcon size={22} color={showPokedex ? activeColor : inactiveColor} />
-              {showPokedex && <span>{t.navPokedex}</span>}
+              <NavPokedexIcon size={24} color={navPokedexActive ? activeColor : inactiveColor} />
             </button>
 
             <button
               onClick={() => {
+                audio.playSFX("click");
                 setShowHelp(true);
                 setShowPokedex(false);
+                setShowAudioSettings(false);
               }}
-              className={`${navItemBase} ${showHelp ? navActive : navInactive}`}
+              className={`${navItemBase} ${navHelpActive ? navActive : navInactive}`}
               title={t.navHelp}
             >
-              <NavHelpIcon size={20} color={showHelp ? activeColor : inactiveColor} />
-              {showHelp && <span>{t.navHelp}</span>}
+              <NavHelpIcon size={22} color={navHelpActive ? activeColor : inactiveColor} />
+            </button>
+
+            <button
+              onClick={() => {
+                audio.playSFX("click");
+                setShowAudioSettings(true);
+              }}
+              className={`${navItemBase} ${navSettingsActive ? navActive : navInactive}`}
+              title={language === "pl" ? "Ustawienia" : "Settings"}
+            >
+              <Menu size={22} color={navSettingsActive ? activeColor : inactiveColor} strokeWidth={3} />
             </button>
           </footer>
         );
@@ -1952,6 +1993,22 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <GameSettings
+        isOpen={showAudioSettings}
+        onClose={() => {
+          setShowAudioSettings(false);
+          setIsMutedState(audio.getMuted());
+        }}
+        language={language}
+        onChangeLanguage={(lang) => changeLanguage(lang)}
+        playerName={playerName}
+        onSavePlayerName={savePlayerName}
+        playerAvatarId={playerAvatarId}
+        onSavePlayerAvatar={savePlayerAvatar}
+        onShowBattleLogs={() => setShowBattleLog(true)}
+        onTriggerReset={() => setShowResetConfirm(true)}
+      />
 
     </div>
   );

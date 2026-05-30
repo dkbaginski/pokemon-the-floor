@@ -203,6 +203,12 @@
   margin-right: auto;
 }
 
+@media (min-width: 640px) {
+  .fluid-map-scale {
+    max-width: clamp(380px, calc(80dvh - 180px), 680px);
+  }
+}
+
 /* Premium micro-interactions and button standardization metrics */
 .btn-core-yellow {
   background-color: #FFD84D;

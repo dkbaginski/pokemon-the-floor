@@ -385,13 +385,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       src={getPokemonImageUrl(playerAvatarId)}
                       alt=""
                       referrerPolicy="no-referrer"
-                      className="h-7 w-7 sm:h-9 sm:w-9 object-contain select-none leading-none"
+                      className="h-7 w-7 sm:h-12 sm:w-12 md:h-14 md:w-14 object-contain select-none leading-none"
                       style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.25))" }}
                     />
                     <span
-                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
+                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black text-[8px] sm:text-[11px] md:text-xs"
                       style={{
-                        fontSize: "clamp(8px, 1vh, 10px)",
                         color: "#24456B",
                         WebkitFontSmoothing: "antialiased",
                       }}
@@ -405,13 +404,12 @@ export default function FloorGrid({ grid, onSelectCell, playerTerritorySize, rec
                       src={getPokemonImageUrl(ownerBot.avatarPokemonId)}
                       alt=""
                       referrerPolicy="no-referrer"
-                      className={`h-7 w-7 sm:h-9 sm:w-9 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}
+                      className={`h-7 w-7 sm:h-12 sm:w-12 md:h-14 md:w-14 object-contain select-none transition-all ${isLocked ? "grayscale opacity-30" : "grayscale opacity-70"}`}
                       style={{ filter: "drop-shadow(0 1px 1px rgba(90,58,42,0.2))" }}
                     />
                     <span
-                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black"
+                      className="block text-center antialiased whitespace-nowrap leading-none uppercase tracking-tight font-black text-[8px] sm:text-[11px] md:text-xs"
                       style={{
-                        fontSize: "clamp(8px, 1vh, 10px)",
                         color: isAdjacent ? "#24456B" : "#5A3A2A",
                         WebkitFontSmoothing: "antialiased",
                       }}

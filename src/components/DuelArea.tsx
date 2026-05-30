@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
 import { Pokemon, POKEMON_LIST, getPokemonImageUrl, isCorrectPokemonName } from "../pokemonData";
 import { Bot } from "../bots";
-import { Mic, AlertCircle, ArrowRight, AlertTriangle } from "lucide-react";
+import { Mic, AlertCircle, ArrowRight, AlertTriangle, X } from "lucide-react";
+import { audio } from "../lib/audio";
 
 interface DuelAreaProps {
   opponent: Bot;
@@ -11,6 +12,7 @@ interface DuelAreaProps {
   onDuelFinish: (winnerId: string, stats: { userCorrect: number; userPassed: number; timerRemaining: number; lastPokemonId: number | null; newlyUnlocked: number[] }) => void;
   onUnlockPokemon: (id: number) => void;
   onSeePokemon?: (id: number) => void;
+  onQuit?: () => void;
   language: "pl" | "en";
   playerName?: string;
   t: any;
@@ -24,6 +26,7 @@ export default function DuelArea({
   onDuelFinish,
   onUnlockPokemon,
   onSeePokemon,
+  onQuit,
   language,
   playerName,
   t
@@ -272,6 +275,7 @@ export default function DuelArea({
     if (!currentPokemon || duelEnded) return;
 
     if (isCorrectPokemonName(transcript, currentPokemon.name)) {
+      audio.playSFX("correct");
       onUnlockPokemon(currentPokemon.id);
       if (!newlyUnlockedRef.current.includes(currentPokemon.id)) {
         newlyUnlockedRef.current.push(currentPokemon.id);
@@ -281,6 +285,7 @@ export default function DuelArea({
       setHeardText("");
       switchToOpponent();
     } else {
+      audio.playSFX("wrong");
       setTypedAnswer(transcript);
       setSpeechError(`${t.speechHeard}: "${transcript}". ${t.speechCorrect}`);
     }
@@ -292,6 +297,7 @@ export default function DuelArea({
     if (!currentPokemon || duelEnded || activePlayer !== "player") return;
 
     if (isCorrectPokemonName(typedAnswer, currentPokemon.name)) {
+      audio.playSFX("correct");
       onUnlockPokemon(currentPokemon.id);
       if (!newlyUnlockedRef.current.includes(currentPokemon.id)) {
         newlyUnlockedRef.current.push(currentPokemon.id);
@@ -302,6 +308,7 @@ export default function DuelArea({
       setSpeechError(null);
       switchToOpponent();
     } else {
+      audio.playSFX("wrong");
       setSpeechError(t.speechWrong);
     }
   };
@@ -310,6 +317,7 @@ export default function DuelArea({
   const handlePlayerPass = () => {
     if (duelEnded || activePlayer !== "player") return;
 
+    audio.playSFX("wrong");
     setPlayerTime((prev) => {
       const afterPenalty = prev - 5.0;
       if (afterPenalty <= 0) {
@@ -394,6 +402,7 @@ export default function DuelArea({
 
       const randomRoll = Math.random();
       if (randomRoll < passChance) {
+        audio.playSFX("wrong");
         setOpponentTime((prev) => {
           const afterPenalty = prev - 5.0;
           if (afterPenalty <= 0) {
@@ -414,6 +423,7 @@ export default function DuelArea({
         setCurrentPokemon(nextPoke);
         triggerOpponentThinking(nextPoke);
       } else {
+        audio.playSFX("correct");
         setOpponentGuessText(pokemonToGuess.name);
 
         setTimeout(() => {
@@ -454,9 +464,27 @@ export default function DuelArea({
         dangerMode ? "bg-[#FFE3DE]" : "bg-[#FFF4DF]"
       }`}
     >
+      {/* --- DUEL ABORT BAR --- */}
+      {onQuit && (
+        <div className="shrink-0 px-3 pt-3 pb-0 flex items-center justify-between select-none z-20">
+          <span className="text-[10px] font-black tracking-widest text-[#5A3A2A]/50 uppercase">
+            {language === "pl" ? "POJEDYNEK" : "ACTIVE DUEL"}
+          </span>
+          <button
+            onClick={() => {
+              audio.playSFX("click");
+              onQuit();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border-2 border-[#5A3A2A] text-[#5A3A2A] hover:bg-[#FFE3DE] hover:text-red-700 font-sans text-[10px] font-black uppercase tracking-wider transition active:scale-95 shadow-[0_2px_0_#5A3A2A] cursor-pointer"
+          >
+            <span>{language === "pl" ? "OPUŚĆ WALKĘ" : "LEAVE DUEL"}</span>
+            <X size={10} strokeWidth={3} />
+          </button>
+        </div>
+      )}
 
       {/* --- TIMERS ROW (two cards side-by-side, design 07) --- */}
-      <div className="grid grid-cols-2 gap-2 px-3 pt-3 z-10 select-none">
+      <div className={`grid grid-cols-2 gap-2 px-3 z-10 select-none ${onQuit ? "pt-1.5" : "pt-3"}`}>
         {/* Player timer */}
         <div
           className={`relative rounded-2xl border-2 border-[#5A3A2A] px-2 py-1.5 shadow-[0_2px_0_#5A3A2A] transition-colors duration-300 ${
