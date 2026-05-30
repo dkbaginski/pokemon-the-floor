@@ -144,7 +144,8 @@ const PokemonCard = memo(function PokemonCard({
                 className="px-2 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-full text-center font-black"
                 style={{
                   backgroundColor: POKEMON_TYPES_PL[poke.types[0]]?.bgHex || "#A9E6CF",
-                  color: "#5A3A2A",
+                  color: "#FFFFFF",
+                  textShadow: "0 1px 1px rgba(15,16,36,0.4)",
                   WebkitFontSmoothing: "antialiased"
                 }}
                 title={type1Name}
@@ -164,7 +165,8 @@ const PokemonCard = memo(function PokemonCard({
                 className="px-2 py-0.5 text-[8px] tracking-wider uppercase rounded-full border border-[#5A3A2A] w-full text-center font-black"
                 style={{
                   backgroundColor: POKEMON_TYPES_PL[poke.types[1]]?.bgHex || "#A9E6CF",
-                  color: "#5A3A2A",
+                  color: "#FFFFFF",
+                  textShadow: "0 1px 1px rgba(15,16,36,0.4)",
                   WebkitFontSmoothing: "antialiased"
                 }}
                 title={type2Name}
@@ -288,42 +290,42 @@ export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, 
               <button
                 type="button"
                 onClick={() => setSelectedStatus((s) => (s === "caught" ? null : "caught"))}
-                className={`bg-[#A9E6CF] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                className={`bg-black/25 border rounded-lg px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
                   selectedStatus === "caught"
-                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840] ring-2 ring-[#1B2840]"
-                    : "border-[#5A3A2A]"
+                    ? "border-[#FFD84D] ring-2 ring-[#FFD84D]"
+                    : "border-black/30"
                 }`}
                 title={t.metricCaught}
               >
-                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
-                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricCaught}</div>
+                <div className="font-mono font-black text-base text-[#FFD84D] leading-none">{String(unlockedCount).padStart(2, "0")}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-white/85 mt-0.5">{t.metricCaught}</div>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedStatus((s) => (s === "seen" ? null : "seen"))}
-                className={`bg-[#BDEBFF] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                className={`bg-black/25 border rounded-lg px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
                   selectedStatus === "seen"
-                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840] ring-2 ring-[#1B2840]"
-                    : "border-[#5A3A2A]"
+                    ? "border-[#BDEBFF] ring-2 ring-[#BDEBFF]"
+                    : "border-black/30"
                 }`}
                 title={t.metricSeen}
               >
-                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{String(seenCount).padStart(2, "0")}</div>
-                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">{t.metricSeen}</div>
+                <div className="font-mono font-black text-base text-[#BDEBFF] leading-none">{String(seenCount).padStart(2, "0")}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-white/85 mt-0.5">{t.metricSeen}</div>
               </button>
               {/* TOTAL tile clears the status filter (acts as "show all"). */}
               <button
                 type="button"
                 onClick={() => setSelectedStatus(null)}
-                className={`bg-[#FFD84D] border-2 rounded-xl px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
+                className={`bg-black/25 border rounded-lg px-1.5 py-1 text-center flex flex-col justify-center cursor-pointer transition active:translate-y-0.5 ${
                   selectedStatus === null
-                    ? "border-[#1B2840] shadow-[0_2px_0_#1B2840]"
-                    : "border-[#5A3A2A]"
+                    ? "border-white ring-2 ring-white/80"
+                    : "border-black/30"
                 }`}
                 title="TOTAL"
               >
-                <div className="font-mono font-black text-base text-[#5A3A2A] leading-none">{totalCount}</div>
-                <div className="text-[7px] font-black uppercase tracking-wider text-[#5A3A2A] mt-0.5">TOTAL</div>
+                <div className="font-mono font-black text-base text-white leading-none">{totalCount}</div>
+                <div className="text-[7px] font-black uppercase tracking-wider text-white/85 mt-0.5">TOTAL</div>
               </button>
             </div>
           </div>
@@ -593,7 +595,12 @@ export default function PokedexView({ unlockedIds, seenIds = [], caughtAt = {}, 
                       {selectedPokeDetail.types.map((typeKey) => (
                         <span
                           key={typeKey}
-                          className="px-2.5 py-0.5 text-[9px] font-black tracking-wider text-[#5A3A2A] uppercase rounded-full shadow-sm border-2 border-[#5A3A2A] text-center bg-white"
+                          className="px-2.5 py-0.5 text-[9px] font-black tracking-wider uppercase rounded-full shadow-sm border-2 border-[#5A3A2A] text-center"
+                          style={{
+                            backgroundColor: POKEMON_TYPES_PL[typeKey]?.bgHex || "#A9E6CF",
+                            color: "#FFFFFF",
+                            textShadow: "0 1px 1px rgba(15,16,36,0.4)"
+                          }}
                         >
                           {getTypeName(typeKey, language)}
                         </span>
