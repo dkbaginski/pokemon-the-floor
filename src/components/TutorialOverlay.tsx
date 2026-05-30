@@ -27,6 +27,21 @@ const rectOf = (sel: string): Rect | null => {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 };
 
+// Smooth single-control quadratic from S→E. The control point is the midpoint
+// pushed perpendicular to the S→E line by `bow` px, producing a gentle arc that
+// lands cleanly on the target (no kink). The arrowhead at E auto-orients to the
+// C→E tangent, so it always points into the target.
+const curvePath = (sx: number, sy: number, ex: number, ey: number, bow: number): string => {
+  const mx = (sx + ex) / 2;
+  const my = (sy + ey) / 2;
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const len = Math.hypot(dx, dy) || 1;
+  const cx = mx + (-dy / len) * bow;
+  const cy = my + (dx / len) * bow;
+  return `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
+};
+
 /**
  * First-run tutorial overlay (design 11).
  *
@@ -67,34 +82,26 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
       const c1 = callout1Ref.current?.getBoundingClientRect();
       const c2 = callout2Ref.current?.getBoundingClientRect();
 
-      // Arrow 1: leaves callout 1's right edge, runs to the progress banner's
-      // x, then curves UP into its bottom edge (quarter-arc, control at the
-      // corner). Banner sits above the callout, so the arrowhead points up.
+      // Arrow 1: from callout 1's top edge (centre) up to the progress banner's
+      // bottom-edge centre. Banner sits above the callout, arrowhead points up.
       if (progress && c1) {
-        const sx = c1.right + 2;
-        const sy = c1.top + c1.height * 0.5;
-        const ex = progress.x + progress.w * 0.45;
+        const sx = c1.left + c1.width * 0.5;
+        const sy = c1.top - 2;
+        const ex = progress.x + progress.w * 0.5;
         const ey = progress.y + progress.h + 4;
-        setArrow1({
-          path: `M ${sx} ${sy} Q ${ex} ${sy} ${ex} ${ey}`,
-          ring: progress
-        });
+        setArrow1({ path: curvePath(sx, sy, ex, ey, 18), ring: progress });
       } else {
         setArrow1(null);
       }
 
-      // Arrow 2: leaves callout 2's left edge, runs left to the tile's x, then
-      // curves DOWN into the tile's top edge (quarter-arc). Tile sits below-left
-      // of the callout, so the arrowhead points down onto the tile.
+      // Arrow 2: from callout 2's left edge (centre) down-left to the attackable
+      // tile's top-edge centre. Tile sits below-left, arrowhead points down.
       if (attackable && c2) {
         const sx = c2.left - 2;
         const sy = c2.top + c2.height * 0.5;
         const ex = attackable.x + attackable.w * 0.5;
-        const ey = attackable.y - 3;
-        setArrow2({
-          path: `M ${sx} ${sy} Q ${ex} ${sy} ${ex} ${ey}`,
-          ring: attackable
-        });
+        const ey = attackable.y - 4;
+        setArrow2({ path: curvePath(sx, sy, ex, ey, 22), ring: attackable });
       } else {
         setArrow2(null);
       }
@@ -116,29 +123,32 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
           Pointer-events disabled so taps pass through to the bottom CTA. */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-[1]" aria-hidden="true">
         <defs>
-          <marker id="tut-arrowhead" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8 Z" fill="#FFD84D" />
+          <marker id="tut-arrowhead" viewBox="0 0 10 10" markerWidth="7" markerHeight="7" refX="7" refY="5" orient="auto">
+            <path d="M0 0 L10 5 L0 10 L3 5 Z" fill="#FFD84D" stroke="#5A3A2A" strokeWidth="1" />
           </marker>
         </defs>
         {arrow1 && (
-          <path d={arrow1.path} stroke="#FFD84D" strokeWidth="2.5" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
+          <path d={arrow1.path} stroke="#FFD84D" strokeWidth="3" strokeDasharray="6 4" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
         )}
         {arrow2 && (
-          <path d={arrow2.path} stroke="#FFD84D" strokeWidth="2.5" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
+          <path d={arrow2.path} stroke="#FFD84D" strokeWidth="3" strokeDasharray="6 4" fill="none" strokeLinecap="round" markerEnd="url(#tut-arrowhead)" />
         )}
       </svg>
 
-      {/* Pulsing ring around the attackable tile (design 11). */}
-      {arrow2?.ring && (
-        <div
-          className="absolute z-[1] rounded-xl border-2 border-[#FFD84D] animate-pulse pointer-events-none"
-          style={{
-            left: arrow2.ring.x - 3,
-            top: arrow2.ring.y - 3,
-            width: arrow2.ring.w + 6,
-            height: arrow2.ring.h + 6
-          }}
-        />
+      {/* Pulsing rings around each highlighted target (design 11). */}
+      {[arrow1?.ring, arrow2?.ring].map((ring, i) =>
+        ring ? (
+          <div
+            key={i}
+            className="absolute z-[1] rounded-xl border-2 border-[#FFD84D] animate-pulse pointer-events-none"
+            style={{
+              left: ring.x - 3,
+              top: ring.y - 3,
+              width: ring.w + 6,
+              height: ring.h + 6
+            }}
+          />
+        ) : null
       )}
 
       {/* Top "first time?" pill */}
@@ -150,8 +160,9 @@ export default function TutorialOverlay({ t, onDismiss }: TutorialOverlayProps) 
         </div>
       </div>
 
-      {/* Callout 1 — progress banner */}
-      <div ref={callout1Ref} className="absolute top-[140px] left-3 right-3 max-w-[280px] z-[2]">
+      {/* Callout 1 — progress banner. Sits in the gap below the banner so its
+          arrow has room to point up at the banner without overlapping it. */}
+      <div ref={callout1Ref} className="absolute top-[200px] left-3 right-3 max-w-[280px] z-[2]">
         <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white p-2.5 shadow-[0_3px_0_#5A3A2A] flex items-start gap-2">
           <div className="w-6 h-6 shrink-0 rounded-full bg-[#FFD84D] border-2 border-[#5A3A2A] text-[#5A3A2A] font-display font-black text-xs flex items-center justify-center">
             1
