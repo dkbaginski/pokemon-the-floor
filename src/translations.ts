@@ -159,6 +159,7 @@ const dict = {
   histStatusInProgress: { en: "IN PROGRESS", pl: "W TRAKCIE" },
   histStatusLocked: { en: "LOCKED", pl: "ZABLOKOWANE" },
   histStatusFinal: { en: "FINAL", pl: "FINAŁ" },
+  histPolLabel: { en: "FIELDS", pl: "PÓL" },
   histBottomConquered: { en: "CONQUERED", pl: "PODBITE" },
   histBottomCaught: { en: "CAUGHT", pl: "ZŁAPANE" },
   histBottomTime: { en: "PLAY TIME", pl: "CZAS GRY" },

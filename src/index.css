@@ -195,6 +195,17 @@
   max-width: 110px;
 }
 
+/* Centered phone-width frame for the card-style screens (intro, name entry,
+   VS challenge, duel results, victory). The app root is full-bleed, so without
+   this these screens stretch edge-to-edge on desktop. The board & Pokédex keep
+   their own wider fluid scaling and intentionally opt out of this frame. */
+.card-screen-frame {
+  width: 100%;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* Dominant Map Aspect scaler to fit any mobile phone safely */
 .fluid-map-scale {
   width: 100%;

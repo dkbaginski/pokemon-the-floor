@@ -19,7 +19,8 @@ import {
   X,
   Volume2,
   VolumeX,
-  Menu
+  Menu,
+  Lock
 } from "lucide-react";
 import { audio } from "./lib/audio";
 import GameSettings from "./components/GameSettings";
@@ -562,8 +563,8 @@ export default function App() {
     }
   };
 
-  const showHeaderActions = screen !== "start" && screen !== "name_entry" && screen !== "duel" && !showPokedex && !showHelp;
-  const isHeaderVisible = screen !== "start" && screen !== "name_entry" && screen !== "duel" && screen !== "challenge" && !showPokedex && !showHelp;
+  const showHeaderActions = screen !== "start" && screen !== "name_entry" && screen !== "duel" && !showPokedex && !showHelp && !showBattleLog;
+  const isHeaderVisible = screen !== "start" && screen !== "name_entry" && screen !== "duel" && screen !== "challenge" && !showPokedex && !showHelp && !showBattleLog;
 
   return (
     <div className="w-full h-dvh max-h-dvh bg-cream-base text-cocoa flex flex-col justify-between relative overflow-hidden font-sans shadow-[0_6px_30px_rgba(90,58,42,0.18)]">
@@ -622,7 +623,7 @@ export default function App() {
             {/* Subtle dotted backdrop */}
             <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
 
-            <div className="relative w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 text-left font-sans select-none overflow-hidden">
+            <div className="card-screen-frame relative h-full flex flex-col gap-2 px-1 pt-1 pb-2 text-left font-sans select-none overflow-hidden">
 
               {/* HERO — single yellow radial-gradient card (header + Pikachu sub-card + title) */}
               <div
@@ -817,7 +818,7 @@ export default function App() {
               {/* dotted backdrop */}
               <div className="absolute inset-0 bg-dot-pattern pointer-events-none" />
 
-              <div className="relative w-full flex flex-col justify-center gap-3">
+              <div className="card-screen-frame relative flex flex-col justify-center gap-3">
                 {/* HERO — duel-field-style avatar tile, type-tinted backdrop */}
                 <div
                   key={"bg" + avatar.id}
@@ -1118,7 +1119,7 @@ export default function App() {
           const playerTint = PLAYER_ROSTER.find((p) => p.id === playerAvatarId)?.bg ?? "#BDEBFF";
 
           return (
-            <div className="w-full h-full flex flex-col gap-2 px-1 pt-1 pb-2 font-sans select-none overflow-hidden">
+            <div className="card-screen-frame h-full flex flex-col gap-2 px-1 pt-1 pb-2 font-sans select-none overflow-hidden">
 
               {/* Header card — duel meta */}
               <div className="shrink-0 rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] px-3 py-2 shadow-[0_3px_0_#5A3A2A]">
@@ -1284,7 +1285,7 @@ export default function App() {
 
         {/* SCREEN 5: DUEL WIN CELEBRATION (design 10) */}
         {screen === "duel_win" && (
-          <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
+          <div className="card-screen-frame h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
 
             {/* Trophy circle */}
             <div className="shrink-0 mx-auto relative mt-2">
@@ -1390,7 +1391,7 @@ export default function App() {
           const lastPoke = duelStats.lastPokemonId ? POKEMON_LIST.find((p) => p.id === duelStats.lastPokemonId) : null;
 
           return (
-            <div className="w-full h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
+            <div className="card-screen-frame h-full flex flex-col gap-2.5 px-1 pt-1 pb-2 text-center font-sans select-none overflow-hidden">
 
               {/* Ghost avatar + K.O. */}
               <div className="shrink-0 mx-auto relative mt-2">
@@ -1496,7 +1497,7 @@ export default function App() {
 
         {/* SCREEN 7: ALL KANTO CONQUERED CHAMPION VICTORY */}
         {screen === "victory" && (
-          <div className="space-y-6 pt-2 text-center select-none text-cocoa">
+          <div className="card-screen-frame space-y-6 pt-2 text-center select-none text-cocoa">
             <div className="h-32 w-32 rounded-full bg-[#FFD84D] border-2 border-[#5A3A2A] shadow-[0_4px_0_rgba(90,58,42,0.18)] flex items-center justify-center mx-auto my-2 relative">
               <Trophy className="h-16 w-16 text-[#24456B] drop-shadow-md" />
               <div className="absolute inset-0 rounded-full animate-ping border-2 border-cocoa/30" />
@@ -1561,10 +1562,10 @@ export default function App() {
         const isGoal3Done = unlockedPokemonIds.length >= 151;
 
         return (
-          <div className="absolute inset-x-0 top-16 bottom-[68px] z-40 bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
+          <div className="absolute inset-x-0 top-0 bottom-[68px] z-[45] bg-[#FFF4DF] flex flex-col font-sans select-none overflow-hidden text-cocoa">
 
             {/* Header card */}
-            <div className="shrink-0 px-3 pt-3 pb-2">
+            <div className="shrink-0 w-full max-w-[520px] mx-auto px-3 pt-3 pb-2">
               <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#1B2840] p-3 flex items-start gap-2">
                 <div className="w-9 h-9 shrink-0 rounded-xl bg-[#FFD84D] border-2 border-[#5A3A2A] flex items-center justify-center shadow-[0_2px_0_#5A3A2A]">
                   <Trophy className="h-4 w-4 text-[#24456B]" />
@@ -1583,7 +1584,7 @@ export default function App() {
             </div>
 
             {/* Tabs */}
-            <div className="shrink-0 px-3">
+            <div className="shrink-0 w-full max-w-[520px] mx-auto px-3">
               <div className="grid grid-cols-2 rounded-xl border-2 border-[#5A3A2A] overflow-hidden">
                 <button
                   onClick={() => setHistoryTab("goals")}
@@ -1605,64 +1606,89 @@ export default function App() {
             </div>
 
             {/* Content scroll area */}
-            <div className="flex-1 overflow-y-auto px-3 pt-3 pb-2 space-y-2.5">
+            <div className="flex-1 overflow-y-auto w-full max-w-[520px] mx-auto px-3 pt-3 pb-2 space-y-2.5">
               {historyTab === "goals" ? (
-                <div className="relative">
-                  {/* Dashed timeline rail threading the node circles (behind cards,
-                      visible in the gaps; ends at the final node's centre). */}
-                  <div aria-hidden="true" className="absolute left-[25px] top-[26px] bottom-[60px] border-l-2 border-dashed border-[#5A3A2A]/45 z-0" />
-                  <div className="relative z-10 space-y-2.5">
-                  {/* Goal 1 */}
-                  <div className="rounded-2xl border-2 border-[#5A3A2A] bg-white p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#A9E6CF] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
-                      1
-                    </div>
-                    <div className="flex-1">
-                      <span className="inline-block bg-[#A9E6CF] text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
-                        {isGoal1Done ? t.histStatusCompleted : t.histStatusInProgress}
-                      </span>
-                      <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal1Title}</div>
-                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">{t.histGoal1Sub}</div>
-                    </div>
-                  </div>
+                <div className="relative pl-1">
+                  {/* Continuous dashed timeline rail running down the centre of the
+                      node column, threading every node circle (behind the rows). */}
+                  <div aria-hidden="true" className="absolute left-[19px] top-5 bottom-5 border-l-2 border-dashed border-[#5A3A2A]/40 z-0" />
 
-                  {/* Goal 2 */}
-                  <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] p-3 shadow-[0_2px_0_#5A3A2A] flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-[#1B2840] text-[#FFD84D] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
-                      {isGoal2Done ? "✓" : "2"}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="inline-block bg-white text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
-                          {isGoal2Done ? t.histStatusCompleted : t.histStatusInProgress}
-                        </span>
-                        <span className="text-[9px] font-mono font-black text-[#5A3A2A]">{playerTerritorySize}/25</span>
+                  <div className="relative z-10 space-y-3">
+                    {/* Goal 1 — completed */}
+                    <div className="flex gap-3">
+                      <div className="shrink-0 w-8 flex justify-center pt-1.5">
+                        <div className="w-8 h-8 rounded-full bg-[#A9E6CF] text-[#1B2840] font-mono font-black text-sm flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
+                          {isGoal1Done ? <Check className="h-4 w-4" strokeWidth={3.5} /> : "1"}
+                        </div>
                       </div>
-                      <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal2Title}</div>
-                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">{t.histGoal2Sub}{attackableCount > 0 ? tp("availableFields", attackableCount) : "—"}</div>
+                      <div className="flex-1 rounded-2xl border-2 border-[#5A3A2A] bg-white p-3 shadow-[0_2px_0_#5A3A2A]">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-block bg-[#A9E6CF] text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A]">
+                            {isGoal1Done ? t.histStatusCompleted : t.histStatusInProgress}
+                          </span>
+                          <span className="text-[9px] font-mono font-black text-[#5A3A2A]/55">00:00</span>
+                        </div>
+                        <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal1Title}</div>
+                        <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">{t.histGoal1Sub}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Goal 3 */}
-                  <div className={`rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-[#F2D5A7]"} p-3 flex items-start gap-2.5`}>
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-[#F2D5A7] text-[#5A3A2A] font-mono font-black text-xs flex items-center justify-center border-2 border-[#5A3A2A]">
-                      🔒
+                    {/* Goal 2 — in progress, segmented territory bar */}
+                    <div className="flex gap-3">
+                      <div className="shrink-0 w-8 flex justify-center pt-1.5">
+                        <div className="w-8 h-8 rounded-full bg-[#FFD84D] text-[#1B2840] flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]">
+                          {isGoal2Done ? <Check className="h-4 w-4" strokeWidth={3.5} /> : <Swords className="h-4 w-4" strokeWidth={2.5} />}
+                        </div>
+                      </div>
+                      <div className="flex-1 rounded-2xl border-2 border-[#5A3A2A] bg-[#FFD84D] p-3 shadow-[0_2px_0_#5A3A2A]">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-block bg-[#1B2840] text-white font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A]">
+                            {isGoal2Done ? t.histStatusCompleted : t.histStatusInProgress}
+                          </span>
+                          <span className="text-[9px] font-mono font-black text-[#5A3A2A]">{playerTerritorySize} / 25 {t.histPolLabel}</span>
+                        </div>
+                        <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">{t.histGoal2Title}</div>
+                        {/* Segmented 25-cell territory progress bar */}
+                        <div className="flex gap-[2px] mt-2 mb-1.5">
+                          {Array.from({ length: 25 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`flex-1 h-2 rounded-[2px] border ${
+                                i < playerTerritorySize
+                                  ? "bg-[#A9E6CF] border-[#5A3A2A]"
+                                  : "bg-[#5A3A2A]/12 border-[#5A3A2A]/30"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <div className="text-[9px] text-[#5A3A2A]/80 font-bold uppercase tracking-wider">{t.histGoal2Sub}{attackableCount > 0 ? tp("availableFields", attackableCount) : "—"}</div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="inline-block bg-white text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A] mb-1">
-                          {isGoal3Done ? t.histStatusCompleted : t.histStatusLocked}
-                        </span>
-                        <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">{t.histStatusFinal}</span>
+
+                    {/* Goal 3 — locked final */}
+                    <div className="flex gap-3">
+                      <div className="shrink-0 w-8 flex justify-center pt-1.5">
+                        <div className={`w-8 h-8 rounded-full ${isGoal3Done ? "bg-[#A9E6CF] text-[#1B2840]" : "bg-[#1B2840] text-[#F2D5A7]"} flex items-center justify-center border-2 border-[#5A3A2A] shadow-[0_2px_0_#5A3A2A]`}>
+                          {isGoal3Done ? <Check className="h-4 w-4" strokeWidth={3.5} /> : <Lock className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                        </div>
                       </div>
-                      <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">
-                        {t.histGoal3Title.split("151")[0]}<span className="bg-[#E95050] text-white px-1 rounded mx-1">151</span>{t.histGoal3Title.split("151")[1] ?? ""}
-                      </div>
-                      <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">
-                        {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
+                      <div className={`flex-1 rounded-2xl border-2 border-dashed border-[#5A3A2A] ${isGoal3Done ? "bg-[#A9E6CF]" : "bg-[#F2D5A7]"} p-3`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-block bg-white text-[#5A3A2A] font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#5A3A2A]">
+                            {isGoal3Done ? t.histStatusCompleted : t.histStatusLocked}
+                          </span>
+                          <span className="text-[9px] font-mono font-black text-[#5A3A2A]/60">{t.histStatusFinal}</span>
+                        </div>
+                        <div className="text-[11px] font-black text-[#5A3A2A] leading-tight">
+                          {t.histGoal3Title.split("151")[0].trimEnd()}{" "}
+                          <span className="inline-block bg-[#E95050] text-white px-1.5 rounded font-mono">151</span>{" "}
+                          {(t.histGoal3Title.split("151")[1] ?? "").trimStart()}
+                        </div>
+                        <div className="text-[9px] text-[#5A3A2A]/80 font-bold mt-0.5">
+                          {t.histGoal3Sub}{unlockedPokemonIds.length}/151 {tp("dexEntries", unlockedPokemonIds.length)} ({Math.round((unlockedPokemonIds.length / 151) * 100)}%)
+                        </div>
                       </div>
                     </div>
-                  </div>
                   </div>
                 </div>
               ) : duelLogs.length === 0 ? (
@@ -1694,7 +1720,7 @@ export default function App() {
             </div>
 
             {/* Bottom stat strip */}
-            <div className="shrink-0 px-3 pb-3 pt-1">
+            <div className="shrink-0 w-full max-w-[520px] mx-auto px-3 pb-3 pt-1">
               <div className="rounded-2xl border-2 border-[#5A3A2A] bg-[#0F1729] p-3 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="font-mono font-black text-base text-[#FFD84D] leading-none">{String(playerTerritorySize).padStart(2, "0")}</div>

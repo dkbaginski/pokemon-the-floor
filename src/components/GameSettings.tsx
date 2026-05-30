@@ -11,9 +11,10 @@ import {
   Globe, 
   Copy, 
   Check, 
-  Edit3, 
-  History, 
-  RefreshCw 
+  Edit3,
+  History,
+  RefreshCw,
+  ChevronDown
 } from "lucide-react";
 
 // The same rosters from App.tsx
@@ -161,12 +162,6 @@ export default function GameSettings({
     setIsEditingProfile(false);
   };
 
-  // Language Change helper
-  const handleLanguageToggle = () => {
-    audio.playSFX("click");
-    onChangeLanguage(language === "pl" ? "en" : "pl");
-  };
-
   // Translation sets for fully localized interface
   const t = {
     settingsTitle: language === "pl" ? "USTAWIENIA GRY" : "GAME SETTINGS",
@@ -190,7 +185,7 @@ export default function GameSettings({
     logsLabel: language === "pl" ? "Historia i Statystyki" : "Battle Logs & Stats",
     logsBtn: language === "pl" ? "ZOBACZ LOGI WALKI" : "VIEW BATTLE LOGS",
     resetLabel: language === "pl" ? "Reset postępów" : "Reset Progress",
-    resetBtn: language === "pl" ? "RESETUJ ROZGRYWKĘ" : "RESET GAME进度",
+    resetBtn: language === "pl" ? "RESETUJ ROZGRYWKĘ" : "RESET GAME",
     returnBtn: language === "pl" ? "POWRÓT DO GRY" : "RETURN TO GAME",
   };
 
@@ -483,12 +478,25 @@ export default function GameSettings({
                 <Globe size={14} />
                 <span>{t.langLabel}</span>
               </div>
-              <button
-                onClick={handleLanguageToggle}
-                className="flex items-center gap-1 h-8 px-3 rounded-xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] text-xs font-black tracking-wider transition cursor-pointer text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] active:translate-y-0.5 active:shadow-[0_1px_0_#5A3A2A]"
-              >
-                <span className="font-sans text-[10px] uppercase tracking-wider">{language === "pl" ? "POLSKI" : "ENGLISH"}</span>
-              </button>
+              <div className="relative">
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    audio.playSFX("click");
+                    onChangeLanguage(e.target.value as "pl" | "en");
+                  }}
+                  aria-label={t.langLabel}
+                  className="appearance-none h-8 pl-3 pr-7 rounded-xl bg-white border-2 border-[#5A3A2A] hover:bg-[#FFF4DF] text-[11px] font-black tracking-wider transition cursor-pointer text-[#5A3A2A] shadow-[0_2px_0_#5A3A2A] outline-none"
+                >
+                  <option value="pl">Polski (PL)</option>
+                  <option value="en">English (EN)</option>
+                </select>
+                <ChevronDown
+                  size={13}
+                  strokeWidth={2.5}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#5A3A2A]"
+                />
+              </div>
             </div>
 
             {/* Reset progressive game */}

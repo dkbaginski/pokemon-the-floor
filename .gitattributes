@@ -7,3 +7,7 @@
 *.gif  binary
 *.webp binary
 *.ico  binary
+*.mp3  binary
+*.flac binary
+*.wav  binary
+*.ogg  binary
